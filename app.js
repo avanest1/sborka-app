@@ -41,7 +41,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 9). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 9). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 10). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 10). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -50,6 +50,7 @@ el('photo-help').onclick=()=>send({version:1,type:'photoHelp'});
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
 // the owner's keyboard button. Mutations always use Telegram sendData above.
 const adminEndpoint=new URLSearchParams(location.search).get('api')||'';
+const adminReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminRead')||'';
 const startWeek=()=>{
   const d=new Date(today+'T12:00:00Z');
   d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
@@ -82,12 +83,13 @@ let adminData=null,adminRequest=0;
 function adminRequestData(week){
   return new Promise((resolve,reject)=>{
     if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
-      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 9 и снова открыть кабинет кнопкой бота.'));
-    if(!tg?.initData)return reject(new Error('Не получено подтверждение Telegram. Откройте кабинет кнопкой в личном чате.'));
+      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 10 и снова открыть кабинет кнопкой бота.'));
+    if(!adminReadToken&&!tg?.initData)return reject(new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».'));
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
     url.searchParams.set('callback',callback);
-    url.searchParams.set('initData',tg.initData);
+    if(adminReadToken)url.searchParams.set('readToken',adminReadToken);
+    else url.searchParams.set('initData',tg.initData);
     url.searchParams.set('week',week);
     const script=document.createElement('script');
     script.referrerPolicy='no-referrer';
@@ -110,12 +112,15 @@ function adminNormalizeWeek(){
   d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
   const monday=d.toISOString().slice(0,10);
   if(monday<'2026-09-14'||monday>today)throw new Error('Выберите неделю с 14.09.2026.');
-  el('admin-week').value=monday;return monday;
+  const end=new Date(d);end.setUTCDate(end.getUTCDate()+6);
+  el('admin-period').textContent='Период: '+monday.split('-').reverse().join('.')+' — '+end.toISOString().slice(0,10).split('-').reverse().join('.');
+  return monday;
 }
 async function loadAdmin(){
   if(!adminView)return;
   const generation=++adminRequest;
   el('admin-editor').classList.add('hide');
+  adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();
   adminStatus('Загружаю записи…');
   try{
     const week=adminNormalizeWeek();
