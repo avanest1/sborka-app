@@ -26,8 +26,21 @@ products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('perio
 for(const [i,name] of parts.entries()){const row=document.createElement('div');row.className='part';const label=document.createElement('label');label.htmlFor='part-'+i;label.textContent=name;const input=document.createElement('input');input.id='part-'+i;input.type='number';input.min='0';input.max='1000';input.step='1';input.value='0';input.inputMode='numeric';row.append(label,input);el('parts').append(row)}
 el('product').onchange=()=>{const table=el('product').value==='Стол';el('table-parts').classList.toggle('hide',!table);el('ordinary').classList.toggle('hide',table);el('qty').required=!table};
 function notice(message){const box=el('message');box.textContent=message;box.className='notice error';box.scrollIntoView({behavior:'smooth',block:'center'})}
+function assemblyNote(){
+  const bonus=el('note').value.trim();
+  const problem=el('problem').value.trim();
+  const responsible=el('responsible').value.trim();
+  if(responsible&&!problem){notice('Опишите проблему перед указанием предполагаемого ответственного.');el('problem').focus();return null}
+  const segments=[];
+  if(bonus)segments.push('Запрос надбавки: '+bonus);
+  if(problem)segments.push('Возникшие проблемы на производстве при сборке изделия: '+problem);
+  if(responsible)segments.push('По мнению сборщика, ответственным может быть: '+responsible+' (требует проверки)');
+  const note=segments.join('\n');
+  if(note.length>1000){notice('Сократите комментарии: общий предел 1000 символов.');return null}
+  return note;
+}
 function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 5). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 5). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
-el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note:el('note').value.trim()})};
+el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
 })();
