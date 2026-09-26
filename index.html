@@ -14,11 +14,22 @@
   </script>
   <link rel="stylesheet" href="./styles.css?v=3">
   <style>
-    .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .tabs .tab{font-size:13px;padding:12px 2px}
+    .tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .tabs .tab{font-size:12px;padding:12px 2px}
     #photo .form-card p{line-height:1.5;color:#547065}
+    #admin .admin-tools{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:14px 0}
+    #admin .admin-tools label{flex:1;min-width:155px}
+    #admin .admin-tools input{display:block;width:100%;margin-top:6px}
+    #admin .admin-card{padding:15px;margin:10px 0;background:#fff;border:1px solid #dce9e4;border-radius:16px}
+    #admin .admin-card strong,#admin .admin-card small{display:block;margin-bottom:5px}
+    #admin .admin-card p{margin:6px 0;overflow-wrap:anywhere}
+    #admin .admin-card button{margin-top:10px}
+    #admin .admin-group{margin:22px 0 6px}
+    #admin .admin-fields{display:grid;gap:6px;margin:10px 0}
+    #admin .admin-fields input,#admin .admin-fields select,#admin .admin-fields textarea{width:100%}
+    #admin .admin-warning{color:#725114;font-size:13px}
   </style>
-  <script src="./app.js?v=8" defer></script>
+  <script src="./app.js?v=9" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -38,12 +49,22 @@
         <button id="tab-shift" class="tab active" type="button" aria-controls="shift" aria-selected="true">◷ &nbsp; Моя смена</button>
         <button id="tab-assembly" class="tab" type="button" aria-controls="assembly" aria-selected="false">▦ &nbsp; Сборка</button>
         <button id="tab-photo" class="tab" type="button" aria-controls="photo" aria-selected="false">▣ &nbsp; Фото</button>
+        <button id="tab-admin" class="tab hide" type="button" aria-controls="admin" aria-selected="false">✎ &nbsp; Учёт</button>
       </nav>
       <section id="shift" aria-labelledby="shift-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ВРЕМЕНИ</span><h2 id="shift-title">Отметить смену</h2><p>Нажмите при входе и после окончания работы.</p></div>
         <div class="action-card action-card--arrival"><div class="action-card__icon" aria-hidden="true">↗</div><div class="action-card__body"><h3>Пришёл на работу</h3><p>Бот зафиксирует время вашего прихода.</p></div><button class="action-button action-button--arrival" id="arrive" type="button">Отметить приход <span aria-hidden="true">→</span></button></div>
         <div class="action-card action-card--leave"><div class="action-card__icon" aria-hidden="true">↘</div><div class="action-card__body"><h3>Закончил работу</h3><p>Бот запишет уход и рассчитает переработку.</p></div><button class="action-button action-button--leave" id="leave" type="button">Отметить уход <span aria-hidden="true">→</span></button></div>
         <div class="tip"><span aria-hidden="true">ⓘ</span><p>Время берётся из сообщения Telegram. После отметки приложение закроется, а подтверждение придёт в чат от бота.</p></div>
+      </section>
+      <section id="admin" class="hide" aria-labelledby="admin-title">
+        <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
+        <div class="admin-tools"><label for="admin-week">Неделя с (понедельник)<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
+        <p class="admin-warning">После правки проверьте подтверждение бота. Повторно откройте вкладку, чтобы увидеть новый расчёт.</p>
+        <div id="admin-status" role="status"></div>
+        <h3 class="admin-group">Сборка</h3><div id="admin-assembly-list"></div>
+        <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
+        <div id="admin-editor" class="hide form-card"></div>
       </section>
       <section id="assembly" class="hide" aria-labelledby="assembly-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ИЗДЕЛИЙ</span><h2 id="assembly-title">Сдать сборку</h2><p>Одна заявка — один вид изделия по одному заказу.</p></div>
@@ -72,7 +93,7 @@
         <p class="form-footnote">Фото отправляется в группу «Фото сборки» вместе с номером заказа, названием изделия и именем сборщика. Если заказ не тот, сначала сдайте нужное изделие.</p>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 8</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 9</footer>
     </div>
   </main>
 </body>
