@@ -16,10 +16,9 @@
   <style>
     .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
     .tabs .tab{font-size:13px;padding:12px 2px}
-    #photo-requested{display:inline-block;width:20px;min-height:20px;height:20px;padding:0;vertical-align:middle;flex:none}
     #photo .form-card p{line-height:1.5;color:#547065}
   </style>
-  <script src="./app.js?v=7" defer></script>
+  <script src="./app.js?v=8" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -61,7 +60,6 @@
             <label class="field" for="note">Запрос надбавки <span class="optional">необязательно</span></label><textarea id="note" maxlength="1000" placeholder="За что просите надбавку"></textarea>
             <label class="field" for="problem">Возникшие проблемы при сборке <span class="optional">необязательно</span></label><textarea id="problem" maxlength="300" placeholder="Что произошло, какой заказ или деталь затронуты"></textarea>
             <label class="field" for="responsible">Кого считаете ответственным <span class="optional">необязательно</span></label><input id="responsible" maxlength="100" placeholder="Ваше мнение, потребуется проверка"><p class="form-hint">Укажите наблюдения. Предположение об ответственном не считается подтверждённым фактом.</p>
-            <label class="field" for="photo-requested"><input id="photo-requested" type="checkbox"> Хочу приложить фото изделия после отправки</label>
           </div>
           <button class="submit" type="submit">Отправить на приёмку <span aria-hidden="true">→</span></button>
           <p class="form-footnote">Надбавку утверждает руководитель. После отправки проверьте подтверждение бота в чате.</p>
@@ -74,7 +72,7 @@
         <p class="form-footnote">Фото отправляется в группу «Фото сборки» вместе с номером заказа, названием изделия и именем сборщика. Если заказ не тот, сначала сдайте нужное изделие.</p>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 7</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 8</footer>
     </div>
   </main>
 </body>
