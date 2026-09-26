@@ -13,7 +13,7 @@
     }
   </script>
   <link rel="stylesheet" href="./styles.css?v=3">
-  <script src="./app.js?v=5" defer></script>
+  <script src="./app.js?v=6" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -51,15 +51,18 @@
           <div class="form-card"><div class="form-card__heading"><span class="form-card__index">02</span><h3>Детали работы</h3></div>
             <label class="field" for="period">Период работы</label><select id="period" required></select>
             <label class="field" for="order">№ заказа</label><input id="order" required maxlength="80" placeholder="Например, 1642" autocomplete="off">
-            <label class="field" for="note">Комментарий / запрос надбавки <span class="optional">необязательно</span></label><textarea id="note" maxlength="1000" placeholder="Укажите, за что согласована надбавка"></textarea>
+            <label class="field" for="note">Запрос надбавки <span class="optional">необязательно</span></label><textarea id="note" maxlength="1000" placeholder="За что просите надбавку"></textarea>
+            <label class="field" for="problem">Возникшие проблемы при сборке <span class="optional">необязательно</span></label><textarea id="problem" maxlength="300" placeholder="Что произошло, какой заказ или деталь затронуты"></textarea>
+            <label class="field" for="responsible">Кого считаете ответственным <span class="optional">необязательно</span></label><input id="responsible" maxlength="100" placeholder="Ваше мнение, потребуется проверка"><p class="form-hint">Укажите наблюдения. Предположение об ответственном не считается подтверждённым фактом.</p>
           </div>
           <button class="submit" type="submit">Отправить на приёмку <span aria-hidden="true">→</span></button>
           <p class="form-footnote">Надбавку утверждает руководитель. После отправки проверьте подтверждение бота в чате.</p>
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 5</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 6</footer>
     </div>
   </main>
 </body>
 </html>
+
