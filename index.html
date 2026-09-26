@@ -13,7 +13,13 @@
     }
   </script>
   <link rel="stylesheet" href="./styles.css?v=3">
-  <script src="./app.js?v=6" defer></script>
+  <style>
+    .tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .tabs .tab{font-size:13px;padding:12px 2px}
+    #photo-requested{display:inline-block;width:20px;min-height:20px;height:20px;padding:0;vertical-align:middle;flex:none}
+    #photo .form-card p{line-height:1.5;color:#547065}
+  </style>
+  <script src="./app.js?v=7" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -32,6 +38,7 @@
       <nav class="tabs" aria-label="Разделы приложения">
         <button id="tab-shift" class="tab active" type="button" aria-controls="shift" aria-selected="true">◷ &nbsp; Моя смена</button>
         <button id="tab-assembly" class="tab" type="button" aria-controls="assembly" aria-selected="false">▦ &nbsp; Сборка</button>
+        <button id="tab-photo" class="tab" type="button" aria-controls="photo" aria-selected="false">▣ &nbsp; Фото</button>
       </nav>
       <section id="shift" aria-labelledby="shift-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ВРЕМЕНИ</span><h2 id="shift-title">Отметить смену</h2><p>Нажмите при входе и после окончания работы.</p></div>
@@ -54,15 +61,21 @@
             <label class="field" for="note">Запрос надбавки <span class="optional">необязательно</span></label><textarea id="note" maxlength="1000" placeholder="За что просите надбавку"></textarea>
             <label class="field" for="problem">Возникшие проблемы при сборке <span class="optional">необязательно</span></label><textarea id="problem" maxlength="300" placeholder="Что произошло, какой заказ или деталь затронуты"></textarea>
             <label class="field" for="responsible">Кого считаете ответственным <span class="optional">необязательно</span></label><input id="responsible" maxlength="100" placeholder="Ваше мнение, потребуется проверка"><p class="form-hint">Укажите наблюдения. Предположение об ответственном не считается подтверждённым фактом.</p>
+            <label class="field" for="photo-requested"><input id="photo-requested" type="checkbox"> Хочу приложить фото изделия после отправки</label>
           </div>
           <button class="submit" type="submit">Отправить на приёмку <span aria-hidden="true">→</span></button>
           <p class="form-footnote">Надбавку утверждает руководитель. После отправки проверьте подтверждение бота в чате.</p>
         </form>
       </section>
+      <section id="photo" class="hide" aria-labelledby="photo-title">
+        <div class="section-heading"><span class="section-heading__eyebrow">ФОТО ИЗДЕЛИЯ</span><h2 id="photo-title">Приложить фото</h2><p>Сначала сдайте изделие в разделе «Сборка». Затем откройте личный чат с ботом и отправьте фото обычным сообщением.</p></div>
+        <div class="form-card"><h3>Какой заказ получит фото?</h3><p>Бот привяжет фото к последней сохранённой вами заявке. Чтобы увидеть её номер заказа и перейти в чат, нажмите кнопку ниже. После одного фото привязка закрывается.</p></div>
+        <button id="photo-help" class="submit" type="button">Показать заказ и открыть чат <span aria-hidden="true">→</span></button>
+        <p class="form-footnote">Фото отправляется в группу «Фото сборки» вместе с номером заказа, названием изделия и именем сборщика. Если заказ не тот, сначала сдайте нужное изделие.</p>
+      </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 6</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 7</footer>
     </div>
   </main>
 </body>
 </html>
-
