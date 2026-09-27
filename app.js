@@ -6,6 +6,44 @@ const staff=['Антон','Нарик','Леня','Фил','Кореш'];
 const tg=window.Telegram?.WebApp;
 const el=id=>document.getElementById(id);
 if(tg){tg.ready();tg.expand()}
+// A visible accessory button also works with the iOS numeric keyboard.
+const keyboardDone=document.createElement('button');
+keyboardDone.type='button';keyboardDone.className='keyboard-done';
+keyboardDone.textContent='Готово';keyboardDone.hidden=true;
+keyboardDone.setAttribute('aria-label','Скрыть клавиатуру');
+document.body.append(keyboardDone);
+const editable=n=>n instanceof HTMLElement&&n.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=hidden])');
+function positionKeyboardDone(){
+  const viewport=window.visualViewport;
+  // Coordinates in the layout viewport; follow iOS keyboard resize and pan.
+  keyboardDone.style.top=Math.max(8,(viewport?viewport.offsetTop+viewport.height:window.innerHeight)-56)+'px';
+}
+function hideInputKeyboard(){
+  if(editable(document.activeElement))document.activeElement.blur();
+  if(typeof tg?.hideKeyboard==='function'&&(!tg.isVersionAtLeast||tg.isVersionAtLeast('9.1'))){
+    try{tg.hideKeyboard()}catch(_){/* blur is the fallback for older clients */}
+  }
+  keyboardDone.hidden=true;
+}
+keyboardDone.addEventListener('pointerdown',e=>e.preventDefault());
+keyboardDone.addEventListener('click',hideInputKeyboard);
+document.addEventListener('focusin',e=>{
+  if(!editable(e.target))return;
+  if(e.target.tagName==='INPUT')e.target.setAttribute('enterkeyhint','done');
+  keyboardDone.hidden=false;positionKeyboardDone();
+});
+document.addEventListener('focusout',()=>setTimeout(()=>{
+  if(!editable(document.activeElement))keyboardDone.hidden=true;
+},0));
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.isComposing&&editable(e.target)&&e.target.tagName==='INPUT'){
+    e.preventDefault();hideInputKeyboard();
+  }
+});
+window.visualViewport?.addEventListener('resize',positionKeyboardDone);
+window.visualViewport?.addEventListener('scroll',positionKeyboardDone);
+window.addEventListener('resize',positionKeyboardDone);
+
 const fromBot=new URLSearchParams(window.location.search).get('employee');
 const employee=staff.includes(fromBot)||fromBot==='Андрей'?fromBot:null;
 const adminView=employee==='Андрей';
@@ -41,7 +79,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 11). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 11). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -83,7 +121,7 @@ let adminData=null,adminRequest=0;
 function adminRequestData(week){
   return new Promise((resolve,reject)=>{
     if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
-      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 11 и снова открыть кабинет кнопкой бота.'));
+      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 12 и снова открыть кабинет кнопкой бота.'));
     if(!adminReadToken&&!tg?.initData)return reject(new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».'));
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
@@ -160,7 +198,7 @@ function renderAdmin(){
   const attendance=adminData?.attendance||[];
   if(!assembly.length)a.append(node('p',filter?'Изделия по такому номеру заказа за неделю не найдены.':'За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
-  const checks=adminData?.checks||[];
+  const checks=(adminData?.checks||[]).filter(message=>!message.startsWith('Проверьте возможный повтор изделия:'));
   alerts.append(node('strong',checks.length?'Проверьте записи: '+checks.length:'Расхождений и незакрытых прошлых смен за неделю не найдено.'));
   checks.forEach(message=>alerts.append(node('p',message,'admin-warning')));
   if(filter&&assembly.length){const total=assembly.reduce((sum,r)=>sum+Number(r.qty||0),0);
@@ -238,3 +276,4 @@ function editAttendance(r){
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 })();
+
