@@ -52,13 +52,13 @@ const visibleName=employee||(telegramFirstName?telegramFirstName:'Откройт
 el('employee-name').textContent=visibleName;
 el('employee-avatar').textContent=visibleName==='Откройте через бота'?'·':Array.from(visibleName)[0].toLocaleUpperCase('ru');
 if(!employee)document.querySelector('.profile__caption').textContent=telegramFirstName?'ПРОФИЛЬ TELEGRAM':'СОТРУДНИК';
-if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>option(el('admin-employee'),n))}
+if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');document.querySelector('.tabs').classList.add('admin-tabs');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>option(el('admin-employee'),n))}
 const day=()=>{const x=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(y=>[y.type,y.value]));return `${x.year}-${x.month}-${x.day}`};
 const today=day();
 el('date').value=today;el('date').max=today;
 el('today-label').textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',weekday:'long'}).format(new Date());
-function section(name){for(const n of ['shift','assembly','photo','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
-el('tab-shift').onclick=()=>section('shift');el('tab-assembly').onclick=()=>section('assembly');el('tab-photo').onclick=()=>section('photo');
+function section(name){for(const n of ['shift','assembly','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
+el('tab-shift').onclick=()=>section('shift');el('tab-assembly').onclick=()=>section('assembly');
 el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
 function option(select,value){const item=document.createElement('option');item.value=value;item.textContent=value;select.append(item)}
 products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('period'),n));
@@ -83,7 +83,6 @@ function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не з�
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
-el('photo-help').onclick=()=>send({version:1,type:'photoHelp'});
 
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
 // the owner's keyboard button. Mutations always use Telegram sendData above.
@@ -223,7 +222,7 @@ function renderOrder(data){
   for(const r of entries){
     const box=node('div',null,'admin-card');
     box.append(node('strong',r.product+' × '+r.qty),
-      node('small',r.date+' · '+r.name+' · '+r.status+' · '+r.key));
+      node('small',r.date+' · '+r.name+' · '+r.status));
     if(r.product==='Стол')box.append(node('p','Состав стола: '+parts.map((name,i)=>
       Number(r.parts[i])>0?name+' × '+r.parts[i]:'').filter(Boolean).join(', ')));
     if(r.note)box.append(node('p','Комментарий сборщика: '+r.note,'order-note'));
