@@ -30,8 +30,10 @@
     #admin .admin-fields{display:grid;gap:6px;margin:10px 0}
     #admin .admin-fields input,#admin .admin-fields select,#admin .admin-fields textarea{width:100%}
     #admin .admin-warning{color:#725114;font-size:13px}
+    #admin .admin-accept-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    #admin .admin-accept-actions button{flex:1 1 130px;min-height:42px}
   </style>
-  <script src="./app.js?v=10" defer></script>
+  <script src="./app.js?v=11" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -62,8 +64,10 @@
       <section id="admin" class="hide" aria-labelledby="admin-title">
         <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
         <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
-        <p class="admin-warning">После правки проверьте подтверждение бота. Повторно откройте вкладку, чтобы увидеть новый расчёт.</p>
+        <label class="field" for="admin-order-filter">Найти заказ в выбранной неделе</label><input id="admin-order-filter" type="search" placeholder="№ заказа (например, 1642)" inputmode="numeric">
+        <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><div id="admin-status" role="status"></div>
+        <div id="admin-checks" role="status"></div>
         <h3 class="admin-group">Сборка</h3><div id="admin-assembly-list"></div>
         <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
         <div id="admin-editor" class="hide form-card"></div>
@@ -95,7 +99,7 @@
         <p class="form-footnote">Фото отправляется в группу «Фото сборки» вместе с номером заказа, названием изделия и именем сборщика. Если заказ не тот, сначала сдайте нужное изделие.</p>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 10</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 11</footer>
     </div>
   </main>
 </body>

@@ -41,7 +41,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 10). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 10). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 11). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 11). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -83,7 +83,7 @@ let adminData=null,adminRequest=0;
 function adminRequestData(week){
   return new Promise((resolve,reject)=>{
     if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
-      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 10 и снова открыть кабинет кнопкой бота.'));
+      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 11 и снова открыть кабинет кнопкой бота.'));
     if(!adminReadToken&&!tg?.initData)return reject(new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».'));
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
@@ -120,7 +120,7 @@ async function loadAdmin(){
   if(!adminView)return;
   const generation=++adminRequest;
   el('admin-editor').classList.add('hide');
-  adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();
+  adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren();
   adminStatus('Загружаю записи…');
   try{
     const week=adminNormalizeWeek();
@@ -130,10 +130,11 @@ async function loadAdmin(){
     renderAdmin();
     adminStatus('Обновлено: '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date())+' МСК.');
   }catch(error){if(generation===adminRequest){adminStatus(error.message);adminData=null;
-    el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren()}}
+    el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren()}}
 }
 el('admin-refresh').onclick=loadAdmin;
 el('admin-week').onchange=loadAdmin;
+el('admin-order-filter').oninput=()=>{if(adminData)renderAdmin()};
 function adminCard(root,title,details,edit){
   const box=node('div',null,'admin-card');
   box.append(node('strong',title),node('small',details));
@@ -141,17 +142,44 @@ function adminCard(root,title,details,edit){
   button.type='button';button.onclick=edit;box.append(button);root.append(box);
   return box;
 }
+function acceptAssembly(r,status){
+  const message=status==='Принято'?'Принять изделие и учесть его в зарплате?':
+    status==='Своя переделка'?'Отправить изделие на переделку и исключить его из начисления?':
+    'Вернуть изделие на приёмку и исключить его из начисления?';
+  if(!window.confirm('Заказ № '+r.order+'. '+message))return;
+  send({version:1,type:'adminAcceptAssembly',row:r.row,key:r.key,
+    link:r.link,rev:r.rev,status});
+  adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
+}
 function renderAdmin(){
   const a=el('admin-assembly-list'),t=el('admin-attendance-list');
-  a.replaceChildren();t.replaceChildren();
-  const assembly=adminData?.assembly||[],attendance=adminData?.attendance||[];
-  if(!assembly.length)a.append(node('p','За выбранную неделю сборки не найдены.'));
+  const alerts=el('admin-checks');a.replaceChildren();t.replaceChildren();alerts.replaceChildren();
+  const filter=el('admin-order-filter').value.trim().toLocaleLowerCase('ru');
+  const assembly=(adminData?.assembly||[]).filter(r=>
+    !filter||String(r.order).toLocaleLowerCase('ru').split(',').some(n=>n.trim().includes(filter)));
+  const attendance=adminData?.attendance||[];
+  if(!assembly.length)a.append(node('p',filter?'Изделия по такому номеру заказа за неделю не найдены.':'За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
+  const checks=adminData?.checks||[];
+  alerts.append(node('strong',checks.length?'Проверьте записи: '+checks.length:'Расхождений и незакрытых прошлых смен за неделю не найдено.'));
+  checks.forEach(message=>alerts.append(node('p',message,'admin-warning')));
+  if(filter&&assembly.length){const total=assembly.reduce((sum,r)=>sum+Number(r.qty||0),0);
+    a.append(node('p','По заказу: '+assembly.length+' операций, '+total+' изделий; принято '+
+      assembly.filter(r=>r.status==='Принято').length+' операций.','admin-warning'))}
   assembly.forEach(r=>{
     const box=adminCard(a,r.name+' · '+r.product+' × '+r.qty,
       r.date+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,()=>editAssembly(r));
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
     if(r.note)box.insertBefore(node('p',r.note.length>220?r.note.slice(0,220)+'…':r.note),box.lastChild);
+    if(r.statusMismatch)box.insertBefore(node('p','Статусы двух таблиц различаются. Решение в закрытой таблице имеет приоритет.','admin-warning'),box.lastChild);
+    const actions=node('div',null,'admin-accept-actions');
+    const choices=r.statusMismatch?[['Синхронизировать',r.status]]:
+      r.status==='Ожидает приёмки'?[['Принять','Принято'],['На переделку','Своя переделка']]:
+      r.status==='Принято'?[['Вернуть на приёмку','Ожидает приёмки'],['На переделку','Своя переделка']]:
+      [['Принять','Принято'],['Вернуть на приёмку','Ожидает приёмки']];
+    choices.forEach(([caption,status])=>{const btn=node('button',caption);
+      btn.type='button';btn.onclick=()=>acceptAssembly(r,status);actions.append(btn)});
+    box.append(actions);
   });
   attendance.forEach(r=>adminCard(t,r.name+' · '+r.date,
     'Пришёл '+(r.arrival?.slice(11,16)||'—')+' · ушёл '+(r.leave?.slice(11,16)||'—')+
@@ -174,7 +202,7 @@ function editAssembly(r){
   const toggle=()=>{const isTable=product.value==='Стол';table.classList.toggle('hide',!isTable);qty.disabled=isTable};
   product.onchange=toggle;toggle();
   const period=field(form,'Период работы','select',r.period,periods);
-  const status=field(form,'Приёмка','select',r.status,['Ожидает приёмки','Принято','Своя переделка']);
+  box.append(node('p','Статус приёмки меняется отдельными кнопками в карточке изделия.','admin-warning'));
   const order=field(form,'№ заказа','text',r.order);order.maxLength=80;order.required=true;
   const note=field(form,'Комментарий, проблемы и просьба о надбавке','textarea',r.note);note.maxLength=1000;
   const save=node('button','Сохранить исправление','submit');save.type='submit';form.append(save);
@@ -190,7 +218,7 @@ function editAssembly(r){
     }
     send({version:1,type:'adminEditAssembly',row:r.row,key:r.key,rev:r.rev,date:date.value,
       name:name.value,product:product.value,qty:count,parts:isTable?values:[],
-      period:period.value,status:status.value,order:order.value.trim(),note:note.value.trim()});
+      period:period.value,status:r.status,order:order.value.trim(),note:note.value.trim()});
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
