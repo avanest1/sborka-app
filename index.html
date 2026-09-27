@@ -15,9 +15,9 @@
   </script>
   <link rel="stylesheet" href="./styles.css?v=12">
   <style>
-    .tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .tabs.admin-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
     .tabs .tab{font-size:12px;padding:12px 2px}
-    #photo .form-card p{line-height:1.5;color:#547065}
     #admin .admin-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:14px 0}
     #admin .admin-tools button{min-height:46px;width:100%;border:0;border-radius:12px;background:#235d4c;color:white}
     #admin .admin-tools label{flex:1;min-width:155px}
@@ -41,7 +41,7 @@
     #admin .order-photo{display:block;width:100%;max-height:300px;object-fit:contain;border-radius:10px;margin-top:8px;background:#eef3ef}
     #admin .order-note{white-space:pre-wrap;overflow-wrap:anywhere}
   </style>
-  <script src="./app.js?v=14" defer></script>
+  <script src="./app.js?v=14.1" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -60,7 +60,6 @@
       <nav class="tabs" aria-label="Разделы приложения">
         <button id="tab-shift" class="tab active" type="button" aria-controls="shift" aria-selected="true">◷ &nbsp; Моя смена</button>
         <button id="tab-assembly" class="tab" type="button" aria-controls="assembly" aria-selected="false">▦ &nbsp; Сборка</button>
-        <button id="tab-photo" class="tab" type="button" aria-controls="photo" aria-selected="false">▣ &nbsp; Фото</button>
         <button id="tab-admin" class="tab hide" type="button" aria-controls="admin" aria-selected="false">✎ &nbsp; Учёт</button>
       </nav>
       <section id="shift" aria-labelledby="shift-title">
@@ -101,17 +100,11 @@
             <label class="field" for="responsible">Кого считаете ответственным <span class="optional">необязательно</span></label><input id="responsible" maxlength="100" placeholder="Ваше мнение, потребуется проверка"><p class="form-hint">Укажите наблюдения. Предположение об ответственном не считается подтверждённым фактом.</p>
           </div>
           <button class="submit" type="submit">Отправить на приёмку <span aria-hidden="true">→</span></button>
-          <p class="form-footnote">Надбавку утверждает руководитель. После отправки проверьте подтверждение бота в чате.</p>
+          <p class="form-footnote">Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия обычным сообщением в этот же чат: оно привяжется к последней сданной заявке.</p>
         </form>
       </section>
-      <section id="photo" class="hide" aria-labelledby="photo-title">
-        <div class="section-heading"><span class="section-heading__eyebrow">ФОТО ИЗДЕЛИЯ</span><h2 id="photo-title">Приложить фото</h2><p>Сначала сдайте изделие в разделе «Сборка». Затем откройте личный чат с ботом и отправьте фото обычным сообщением.</p></div>
-        <div class="form-card"><h3>Какой заказ получит фото?</h3><p>Бот привяжет фото к последней сохранённой вами заявке. Чтобы увидеть её номер заказа и перейти в чат, нажмите кнопку ниже. После одного фото привязка закрывается.</p></div>
-        <button id="photo-help" class="submit" type="button">Показать заказ и открыть чат <span aria-hidden="true">→</span></button>
-        <p class="form-footnote">Фото отправляется в группу «Фото сборки» вместе с номером заказа, названием изделия и именем сборщика. Если заказ не тот, сначала сдайте нужное изделие.</p>
-      </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 14</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 14.1</footer>
     </div>
   </main>
 </body>
