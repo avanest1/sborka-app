@@ -118,17 +118,18 @@ function adminStatus(value){
   el('admin-status').textContent=value;
 }
 let adminData=null,adminRequest=0;
-function adminRequestData(week){
+function adminRequestData(week, extra={}){
   return new Promise((resolve,reject)=>{
     if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
-      return reject(new Error('В проекте Apps Script нужно развернуть веб-приложение версии 12 и снова открыть кабинет кнопкой бота.'));
+      return reject(new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.'));
     if(!adminReadToken&&!tg?.initData)return reject(new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».'));
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
     url.searchParams.set('callback',callback);
     if(adminReadToken)url.searchParams.set('readToken',adminReadToken);
     else url.searchParams.set('initData',tg.initData);
-    url.searchParams.set('week',week);
+    if(week)url.searchParams.set('week',week);
+    for(const [key,value] of Object.entries(extra))url.searchParams.set(key,value);
     const script=document.createElement('script');
     script.referrerPolicy='no-referrer';
     let done=false,timeout;
@@ -189,6 +190,75 @@ function acceptAssembly(r,status){
     link:r.link,rev:r.rev,status});
   adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
 }
+let orderRequest=0,orderData=null;
+el('order-search').onsubmit=e=>{e.preventDefault();loadOrder()};
+async function loadOrder(){
+  if(!adminView)return;
+  const generation=++orderRequest;
+  const order=el('order-number').value.trim();
+  orderData=null;el('order-card').replaceChildren();
+  if(!order||order.length>80||order.split(/[,;\n]/).length!==1){
+    el('order-status').textContent='Укажите один номер заказа.';return;
+  }
+  el('order-status').textContent='Ищу изделия и фото по заказу…';
+  try{
+    const data=await adminRequestData('',{view:'order',order});
+    if(generation!==orderRequest)return;
+    orderData=data;renderOrder(data);
+  }catch(error){if(generation===orderRequest)el('order-status').textContent=error.message}
+}
+function renderOrder(data){
+  const root=el('order-card');root.replaceChildren();
+  const entries=data.entries||[];
+  if(!entries.length){el('order-status').textContent='Заказ № '+data.order+': изделий не найдено.';return}
+  el('order-status').textContent='Заказ № '+data.order+' · '+entries.length+' операций';
+  const counts=new Map();
+  for(const r of entries)counts.set(r.product,(counts.get(r.product)||0)+Number(r.qty||0));
+  const states=['Принято','Ожидает приёмки','Своя переделка'];
+  const summary=node('div',null,'order-summary');
+  summary.append(node('strong','Изделия: '+[...counts].map(([name,qty])=>name+' — '+qty+' шт.').join('; ')));
+  summary.append(node('div',states.map(s=>s+': '+entries.filter(r=>r.status===s)
+    .reduce((n,r)=>n+Number(r.qty||0),0)+' шт.').join(' · ')));
+  root.append(summary);
+  for(const r of entries){
+    const box=node('div',null,'admin-card');
+    box.append(node('strong',r.product+' × '+r.qty),
+      node('small',r.date+' · '+r.name+' · '+r.status+' · '+r.key));
+    if(r.product==='Стол')box.append(node('p','Состав стола: '+parts.map((name,i)=>
+      Number(r.parts[i])>0?name+' × '+r.parts[i]:'').filter(Boolean).join(', ')));
+    if(r.note)box.append(node('p','Комментарий сборщика: '+r.note,'order-note'));
+    if(r.statusMismatch)box.append(node('p','Статусы журналов расходятся; показано решение основной таблицы.','admin-warning'));
+    if(r.photo){
+      const button=node('button','Показать фото');button.type='button';
+      button.onclick=async()=>{
+        button.disabled=true;button.textContent='Загружаю фото…';
+        try{
+          const photo=await adminRequestData('',{view:'photo',key:r.key});
+          if(!box.isConnected)return;
+          const img=document.createElement('img');img.className='order-photo';
+          img.alt='Фото изделия · '+r.product+' · заказ № '+data.order;
+          img.src=photo.src;button.replaceWith(img);
+        }catch(error){button.disabled=false;button.textContent='Повторить загрузку фото';
+          box.append(node('p',error.message,'admin-warning'))}
+      };
+      box.append(button);
+      if(r.photoOrder&&r.photoOrder!==r.order)box.append(node('small','При отправке фото был указан заказ № '+r.photoOrder));
+    }else box.append(node('small','Фото к этой заявке не привязано.'));
+    const actions=node('div',null,'admin-accept-actions');
+    const change=node('button','Исправить запись');change.type='button';change.onclick=()=>editAssembly(r);
+    actions.append(change);
+    if(r.status==='Ожидает приёмки'||r.status==='Своя переделка'){
+      const accept=node('button','Принять');accept.type='button';accept.onclick=()=>acceptAssembly(r,'Принято');
+      actions.append(accept);
+    }
+    if(r.status==='Принято'||r.status==='Ожидает приёмки'){
+      const rework=node('button','На переделку');rework.type='button';
+      rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
+    }
+    box.append(actions);root.append(box);
+  }
+  root.append(node('p','После решения по приёмке дождитесь ответа бота и повторно найдите заказ: карточка показывает данные на момент последней загрузки.','admin-warning'));
+}
 function renderAdmin(){
   const a=el('admin-assembly-list'),t=el('admin-attendance-list');
   const alerts=el('admin-checks');a.replaceChildren();t.replaceChildren();alerts.replaceChildren();
@@ -210,6 +280,10 @@ function renderAdmin(){
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
     if(r.note)box.insertBefore(node('p',r.note.length>220?r.note.slice(0,220)+'…':r.note),box.lastChild);
     if(r.statusMismatch)box.insertBefore(node('p','Статусы двух таблиц различаются. Решение в закрытой таблице имеет приоритет.','admin-warning'),box.lastChild);
+    const openOrder=node('button','Карточка заказа');openOrder.type='button';
+    openOrder.onclick=()=>{el('order-number').value=String(r.order).split(/[,;\n]/)[0].trim();
+      loadOrder();el('order-search').scrollIntoView({behavior:'smooth',block:'start'})};
+    box.append(openOrder);
     const actions=node('div',null,'admin-accept-actions');
     const choices=r.statusMismatch?[['Синхронизировать',r.status]]:
       r.status==='Ожидает приёмки'?[['Принять','Принято'],['На переделку','Своя переделка']]:
@@ -276,4 +350,3 @@ function editAttendance(r){
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 })();
-
