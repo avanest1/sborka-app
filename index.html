@@ -37,6 +37,12 @@
     #admin .admin-accept-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     #admin .admin-accept-actions button{flex:1 1 130px;min-height:42px}
     #admin .admin-accept-actions .admin-delete{background:#fff1ec;color:#9c2e22;border:1px solid #e3aba3}
+    #admin .admin-bulk{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px;margin:10px 0;background:#eaf5ed;border-radius:14px}
+    #admin .admin-bulk.hide{display:none}
+    #admin .admin-bulk button{min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:#235d4c;color:#fff}
+    #admin .admin-bulk button:disabled{opacity:.45}
+    #admin .admin-select{display:flex;align-items:center;gap:12px;min-height:44px;margin-bottom:10px;font-weight:600;color:#235d4c}
+    #admin .admin-select input{width:22px;height:22px;accent-color:#235d4c}
     #admin .order-search{display:flex;gap:8px;align-items:end;margin:14px 0}
     #admin .order-search label{flex:1;min-width:0}
     #admin .order-search input{width:100%;margin-top:6px}
@@ -88,7 +94,9 @@
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><div id="admin-status" role="status"></div>
         <div id="admin-checks" role="status"></div>
-        <h3 class="admin-group">Сборка</h3><div id="admin-assembly-list"></div>
+        <h3 class="admin-group">Сборка</h3>
+        <div id="admin-bulk" class="admin-bulk hide"><strong id="admin-bulk-count">Выбрано: 0 из 8</strong><button id="admin-bulk-accept" type="button" disabled>Принять выбранные</button></div>
+        <div id="admin-assembly-list"></div>
         <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
         <div id="admin-editor" class="hide form-card"></div>
       </section>
@@ -113,7 +121,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 16</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 17</footer>
     </div>
   </main>
 </body>
