@@ -79,7 +79,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -95,6 +95,22 @@ const startWeek=()=>{
 };
 el('admin-week').value=startWeek();
 el('admin-week').max=today;
+const selectedAssemblies=new Map();
+function bulkSelectionStatus(){
+  const count=selectedAssemblies.size;
+  el('admin-bulk-count').textContent='Выбрано: '+count+' из 8';
+  el('admin-bulk-accept').disabled=count<2;
+}
+el('admin-bulk-accept').onclick=()=>{
+  const chosen=[...selectedAssemblies.values()];
+  if(chosen.length<2||chosen.length>8)return;
+  const summary=chosen.map(r=>'• '+r.name+' · '+r.product+' × '+r.qty+
+    ' · заказ № '+r.order+' · ID '+r.key).join('\n');
+  if(!window.confirm('Принять '+chosen.length+' заявок и учесть их в зарплате?\n\n'+summary))return;
+  send({version:1,type:'adminAcceptAssemblies',status:'Принято',
+    items:chosen.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
+  adminStatus('Запрос передан боту. Дождитесь подтверждения в чате, затем обновите список.');
+};
 const node=(tag,content,klass)=>{
   const n=document.createElement(tag);
   if(content!=null)n.textContent=String(content);
@@ -158,6 +174,7 @@ async function loadAdmin(){
   if(!adminView)return;
   const generation=++adminRequest;
   el('admin-editor').classList.add('hide');
+  selectedAssemblies.clear();bulkSelectionStatus();el('admin-bulk').classList.add('hide');
   adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren();
   adminStatus('Загружаю записи…');
   try{
@@ -330,6 +347,8 @@ function renderAdmin(){
   const alerts=el('admin-checks');a.replaceChildren();t.replaceChildren();alerts.replaceChildren();
   const assembly=adminData?.assembly||[];
   const attendance=adminData?.attendance||[];
+  el('admin-bulk').classList.toggle('hide',adminData?.bulkAccept!==true);
+  bulkSelectionStatus();
   if(!assembly.length)a.append(node('p','За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
   const checks=(adminData?.checks||[]).filter(message=>!message.startsWith('Проверьте возможный повтор изделия:'));
@@ -338,6 +357,21 @@ function renderAdmin(){
   assembly.forEach(r=>{
     const box=adminCard(a,r.name+' · '+r.product+' × '+r.qty,
       r.date+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,()=>editAssembly(r));
+    if(adminData?.bulkAccept===true&&!r.statusMismatch&&
+        (r.status==='Ожидает приёмки'||r.status==='Своя переделка')){
+      const choice=node('label',null,'admin-select');
+      const checkbox=document.createElement('input');checkbox.type='checkbox';
+      choice.append(checkbox,node('span','Выбрать для приёмки'));
+      checkbox.onchange=()=>{
+        if(checkbox.checked){
+          if(selectedAssemblies.size>=8){checkbox.checked=false;
+            adminStatus('За один раз можно принять не больше восьми заявок.');return}
+          selectedAssemblies.set(r.key,r);
+        }else selectedAssemblies.delete(r.key);
+        bulkSelectionStatus();
+      };
+      box.insertBefore(choice,box.firstChild);
+    }
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
     if(r.note)box.insertBefore(node('p',r.note.length>220?r.note.slice(0,220)+'…':r.note),box.lastChild);
     if(r.statusMismatch)box.insertBefore(node('p','Статусы двух таблиц различаются. Решение в закрытой таблице имеет приоритет.','admin-warning'),box.lastChild);
