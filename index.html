@@ -13,7 +13,11 @@
       document.write('<script src="./telegram-web-app.js?v=1"><\/script>');
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=12">
+  <script>
+    // Keep the Telegram keyboard URL stable; fetch current assets on every open.
+    const assetRefresh = Date.now();
+    document.write('<link rel="stylesheet" href="./styles.css?fresh=' + assetRefresh + '">');
+  </script>
   <style>
     .tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
     .tabs.admin-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -42,7 +46,9 @@
     #admin .order-photo{display:block;width:100%;max-height:300px;object-fit:contain;border-radius:10px;margin-top:8px;background:#eef3ef}
     #admin .order-note{white-space:pre-wrap;overflow-wrap:anywhere}
   </style>
-  <script src="./app.js?v=16" defer></script>
+  <script>
+    document.write('<script src="./app.js?fresh=' + assetRefresh + '" defer><\/script>');
+  </script>
 </head>
 <body>
   <main class="shell">
