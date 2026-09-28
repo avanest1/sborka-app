@@ -41,7 +41,7 @@
     #admin .order-photo{display:block;width:100%;max-height:300px;object-fit:contain;border-radius:10px;margin-top:8px;background:#eef3ef}
     #admin .order-note{white-space:pre-wrap;overflow-wrap:anywhere}
   </style>
-  <script src="./app.js?v=14.1" defer></script>
+  <script src="./app.js?v=15" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -70,12 +70,14 @@
       </section>
       <section id="admin" class="hide" aria-labelledby="admin-title">
         <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
+        <h3 class="admin-group">Поиск по всей сборке</h3>
+        <form id="global-search" class="order-search"><label for="global-query">№ заказа, изделие или сотрудник<input id="global-query" type="search" minlength="2" maxlength="80" placeholder="Например: 1488, стол, Леня" autocomplete="off" required></label><button type="submit">Найти</button></form>
+        <div id="global-status" role="status"></div><div id="global-results" class="order-card-list"></div>
         <h3 class="admin-group">Карточка заказа · все недели</h3>
         <form id="order-search" class="order-search"><label for="order-number">№ заказа<input id="order-number" type="search" maxlength="80" placeholder="Например, 1642" autocomplete="off" required></label><button type="submit">Найти</button></form>
         <div id="order-status" role="status"></div><div id="order-card" class="order-card-list"></div>
         <h3 class="admin-group">Учёт по неделям</h3>
         <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
-        <label class="field" for="admin-order-filter">Найти заказ в выбранной неделе</label><input id="admin-order-filter" type="search" placeholder="№ заказа (например, 1642)" inputmode="numeric">
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><div id="admin-status" role="status"></div>
         <div id="admin-checks" role="status"></div>
@@ -104,7 +106,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 14.1</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 15</footer>
     </div>
   </main>
 </body>
