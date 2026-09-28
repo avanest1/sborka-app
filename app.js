@@ -79,7 +79,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -188,6 +188,27 @@ function acceptAssembly(r,status){
     link:r.link,rev:r.rev,status});
   adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
 }
+function deleteAssembly(r){
+  if(!adminView)return;
+  const summary='Заявка '+r.key+' · '+r.name+' · '+r.product+' × '+r.qty+
+    ' · заказ № '+r.order+' · '+r.date+'.';
+  const warning='Удалить запись из сборки и начисления? Действие запишется в историю удалений. '+
+    'Фото из карточки исчезнет, но сообщение с фото в группе останется. '+
+    'Если неделя закрыта или есть выплата, удаление будет запрещено.';
+  if(!window.confirm(summary+'\n\n'+warning))return;
+  const confirmId=window.prompt('Для подтверждения введите ID заявки целиком:\n'+r.key);
+  if(confirmId===null)return;
+  if(confirmId.trim()!==r.key){adminStatus('ID заявки не совпал. Запись сохранена.');return}
+  send({version:1,type:'adminDeleteAssembly',row:r.row,key:r.key,
+    link:r.link,rev:r.rev,name:r.name,order:String(r.order),
+    photo:Boolean(r.photo),confirmId:confirmId.trim()});
+  adminStatus('Запрос на удаление передан боту. Дождитесь подтверждения в чате и обновите список.');
+}
+function addDeleteButton(actions,r){
+  if(r.canDelete!==true)return;
+  const button=node('button','Удалить запись','admin-delete');
+  button.type='button';button.onclick=()=>deleteAssembly(r);actions.append(button);
+}
 let orderRequest=0,orderData=null;
 let globalRequest=0;
 el('global-search').onsubmit=e=>{e.preventDefault();loadGlobalSearch()};
@@ -231,6 +252,7 @@ function renderGlobalSearch(data){
       const rework=node('button','На переделку');rework.type='button';
       rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
     }
+    addDeleteButton(actions,r);
     box.append(actions);
   }
 }
@@ -298,6 +320,7 @@ function renderOrder(data){
       const rework=node('button','На переделку');rework.type='button';
       rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
     }
+    addDeleteButton(actions,r);
     box.append(actions);root.append(box);
   }
   root.append(node('p','После решения по приёмке дождитесь ответа бота и повторно найдите заказ: карточка показывает данные на момент последней загрузки.','admin-warning'));
@@ -329,6 +352,7 @@ function renderAdmin(){
       [['Принять','Принято'],['Вернуть на приёмку','Ожидает приёмки']];
     choices.forEach(([caption,status])=>{const btn=node('button',caption);
       btn.type='button';btn.onclick=()=>acceptAssembly(r,status);actions.append(btn)});
+    addDeleteButton(actions,r);
     box.append(actions);
   });
   attendance.forEach(r=>adminCard(t,r.name+' · '+r.date,
