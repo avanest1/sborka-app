@@ -197,13 +197,28 @@ function adminCard(root,title,details,edit){
   return box;
 }
 function acceptAssembly(r,status){
-  const message=status==='Принято'?'Принять изделие и учесть его в зарплате?':
+  const message=r.statusMismatch&&status===r.status?'Согласовать статус в двух журналах?':
+    status==='Принято'?'Принять изделие и учесть его в зарплате?':
     status==='Своя переделка'?'Отправить изделие на переделку и исключить его из начисления?':
     'Вернуть изделие на приёмку и исключить его из начисления?';
-  if(!window.confirm('Заказ № '+r.order+'. '+message))return;
+  if(!window.confirm('Заявка '+r.key+' · заказ № '+r.order+'.\n'+message))return;
   send({version:1,type:'adminAcceptAssembly',row:r.row,key:r.key,
     link:r.link,rev:r.rev,status});
   adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
+}
+function acceptanceChoices(r){
+  if(r.statusMismatch)return [['Синхронизировать',r.status]];
+  if(r.status==='Ожидает приёмки')return [['Принять','Принято'],['На переделку','Своя переделка']];
+  if(r.status==='Принято')return [['Вернуть на приёмку','Ожидает приёмки'],['На переделку','Своя переделка']];
+  if(r.status==='Своя переделка')return [['Принять','Принято'],['Вернуть на приёмку','Ожидает приёмки']];
+  return [];
+}
+function addAcceptanceButtons(actions,r){
+  for(const [caption,status] of acceptanceChoices(r)){
+    const button=node('button',caption);
+    button.type='button';button.onclick=()=>acceptAssembly(r,status);
+    actions.append(button);
+  }
 }
 function deleteAssembly(r){
   if(!adminView)return;
@@ -261,14 +276,7 @@ function renderGlobalSearch(data){
     order.onclick=()=>{el('order-number').value=String(r.order).split(/[,;\n]/)[0].trim();
       loadOrder();el('order-search').scrollIntoView({behavior:'smooth',block:'start'})};
     actions.append(order);
-    if(r.status==='Ожидает приёмки'||r.status==='Своя переделка'){
-      const accept=node('button','Принять');accept.type='button';
-      accept.onclick=()=>acceptAssembly(r,'Принято');actions.append(accept);
-    }
-    if(r.status==='Ожидает приёмки'||r.status==='Принято'){
-      const rework=node('button','На переделку');rework.type='button';
-      rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
-    }
+    addAcceptanceButtons(actions,r);
     addDeleteButton(actions,r);
     box.append(actions);
   }
@@ -329,14 +337,7 @@ function renderOrder(data){
     const actions=node('div',null,'admin-accept-actions');
     const change=node('button','Исправить запись');change.type='button';change.onclick=()=>editAssembly(r);
     actions.append(change);
-    if(r.status==='Ожидает приёмки'||r.status==='Своя переделка'){
-      const accept=node('button','Принять');accept.type='button';accept.onclick=()=>acceptAssembly(r,'Принято');
-      actions.append(accept);
-    }
-    if(r.status==='Принято'||r.status==='Ожидает приёмки'){
-      const rework=node('button','На переделку');rework.type='button';
-      rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
-    }
+    addAcceptanceButtons(actions,r);
     addDeleteButton(actions,r);
     box.append(actions);root.append(box);
   }
@@ -380,12 +381,7 @@ function renderAdmin(){
       loadOrder();el('order-search').scrollIntoView({behavior:'smooth',block:'start'})};
     box.append(openOrder);
     const actions=node('div',null,'admin-accept-actions');
-    const choices=r.statusMismatch?[['Синхронизировать',r.status]]:
-      r.status==='Ожидает приёмки'?[['Принять','Принято'],['На переделку','Своя переделка']]:
-      r.status==='Принято'?[['Вернуть на приёмку','Ожидает приёмки'],['На переделку','Своя переделка']]:
-      [['Принять','Принято'],['Вернуть на приёмку','Ожидает приёмки']];
-    choices.forEach(([caption,status])=>{const btn=node('button',caption);
-      btn.type='button';btn.onclick=()=>acceptAssembly(r,status);actions.append(btn)});
+    addAcceptanceButtons(actions,r);
     addDeleteButton(actions,r);
     box.append(actions);
   });
