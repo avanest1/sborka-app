@@ -139,7 +139,7 @@ function adminRequestData(week, extra={}){
     }
     window[callback]=r=>r?.ok?finish(null,r.data):finish(new Error(r?.message||'Нет ответа сервера.'));
     script.onerror=()=>finish(new Error('Не удалось загрузить данные. Проверьте развертывание веб-приложения.'));
-    timeout=setTimeout(()=>finish(new Error('Сервер долго отвечает. Повторите обновление.')),18000);
+    timeout=setTimeout(()=>finish(new Error('Сервер долго отвечает. Повторите обновление.')),30000);
     script.src=url.toString();document.head.append(script);
   });
 }
@@ -172,7 +172,6 @@ async function loadAdmin(){
 }
 el('admin-refresh').onclick=loadAdmin;
 el('admin-week').onchange=loadAdmin;
-el('admin-order-filter').oninput=()=>{if(adminData)renderAdmin()};
 function adminCard(root,title,details,edit){
   const box=node('div',null,'admin-card');
   box.append(node('strong',title),node('small',details));
@@ -190,6 +189,51 @@ function acceptAssembly(r,status){
   adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
 }
 let orderRequest=0,orderData=null;
+let globalRequest=0;
+el('global-search').onsubmit=e=>{e.preventDefault();loadGlobalSearch()};
+async function loadGlobalSearch(){
+  if(!adminView)return;
+  const generation=++globalRequest,query=el('global-query').value.trim();
+  el('global-results').replaceChildren();
+  if(query.length<2||query.length>80){el('global-status').textContent='Укажите не меньше двух символов.';return}
+  el('global-status').textContent='Ищу во всей истории сборки…';
+  try{
+    const data=await adminRequestData('',{view:'search',query});
+    if(generation!==globalRequest)return;
+    renderGlobalSearch(data);
+  }catch(error){if(generation===globalRequest)el('global-status').textContent=error.message}
+}
+function renderGlobalSearch(data){
+  const root=el('global-results');root.replaceChildren();
+  const entries=data.entries||[];
+  el('global-status').textContent='Найдено: '+data.total+' операций'+
+    (data.total>entries.length?' · показаны первые '+entries.length:'');
+  if(!entries.length)return;
+  for(const r of entries){
+    const box=adminCard(root,r.product+' × '+r.qty,
+      r.date+' · '+r.name+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,
+      ()=>editAssembly(r));
+    if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>
+      r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
+    if(r.note)box.insertBefore(node('p',r.note,'order-note'),box.lastChild);
+    if(r.photo)box.append(node('small','Фото привязано · откройте карточку заказа.'));
+    if(r.statusMismatch)box.append(node('p','Статусы журналов расходятся; действует решение основной таблицы.','admin-warning'));
+    const actions=node('div',null,'admin-accept-actions');
+    const order=node('button','Карточка заказа');order.type='button';
+    order.onclick=()=>{el('order-number').value=String(r.order).split(/[,;\n]/)[0].trim();
+      loadOrder();el('order-search').scrollIntoView({behavior:'smooth',block:'start'})};
+    actions.append(order);
+    if(r.status==='Ожидает приёмки'||r.status==='Своя переделка'){
+      const accept=node('button','Принять');accept.type='button';
+      accept.onclick=()=>acceptAssembly(r,'Принято');actions.append(accept);
+    }
+    if(r.status==='Ожидает приёмки'||r.status==='Принято'){
+      const rework=node('button','На переделку');rework.type='button';
+      rework.onclick=()=>acceptAssembly(r,'Своя переделка');actions.append(rework);
+    }
+    box.append(actions);
+  }
+}
 el('order-search').onsubmit=e=>{e.preventDefault();loadOrder()};
 async function loadOrder(){
   if(!adminView)return;
@@ -261,18 +305,13 @@ function renderOrder(data){
 function renderAdmin(){
   const a=el('admin-assembly-list'),t=el('admin-attendance-list');
   const alerts=el('admin-checks');a.replaceChildren();t.replaceChildren();alerts.replaceChildren();
-  const filter=el('admin-order-filter').value.trim().toLocaleLowerCase('ru');
-  const assembly=(adminData?.assembly||[]).filter(r=>
-    !filter||String(r.order).toLocaleLowerCase('ru').split(',').some(n=>n.trim().includes(filter)));
+  const assembly=adminData?.assembly||[];
   const attendance=adminData?.attendance||[];
-  if(!assembly.length)a.append(node('p',filter?'Изделия по такому номеру заказа за неделю не найдены.':'За выбранную неделю сборки не найдены.'));
+  if(!assembly.length)a.append(node('p','За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
   const checks=(adminData?.checks||[]).filter(message=>!message.startsWith('Проверьте возможный повтор изделия:'));
   alerts.append(node('strong',checks.length?'Проверьте записи: '+checks.length:'Расхождений и незакрытых прошлых смен за неделю не найдено.'));
   checks.forEach(message=>alerts.append(node('p',message,'admin-warning')));
-  if(filter&&assembly.length){const total=assembly.reduce((sum,r)=>sum+Number(r.qty||0),0);
-    a.append(node('p','По заказу: '+assembly.length+' операций, '+total+' изделий; принято '+
-      assembly.filter(r=>r.status==='Принято').length+' операций.','admin-warning'))}
   assembly.forEach(r=>{
     const box=adminCard(a,r.name+' · '+r.product+' × '+r.qty,
       r.date+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,()=>editAssembly(r));
