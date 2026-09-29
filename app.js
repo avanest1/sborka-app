@@ -47,18 +47,23 @@ window.addEventListener('resize',positionKeyboardDone);
 const fromBot=new URLSearchParams(window.location.search).get('employee');
 const employee=staff.includes(fromBot)||fromBot==='Андрей'?fromBot:null;
 const adminView=employee==='Андрей';
+const workerView=staff.includes(employee);
+const workerReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('workerRead')||'';
 const telegramFirstName=String(tg?.initDataUnsafe?.user?.first_name||'').trim();
 const visibleName=employee||(telegramFirstName?telegramFirstName:'Откройте через бота');
 el('employee-name').textContent=visibleName;
 el('employee-avatar').textContent=visibleName==='Откройте через бота'?'·':Array.from(visibleName)[0].toLocaleUpperCase('ru');
 if(!employee)document.querySelector('.profile__caption').textContent=telegramFirstName?'ПРОФИЛЬ TELEGRAM':'СОТРУДНИК';
 if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');document.querySelector('.tabs').classList.add('admin-tabs');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>{option(el('admin-employee'),n);option(el('admin-filter-employee'),n)})}
+if(workerView){el('tab-history').classList.remove('hide');el('tab-earnings').classList.remove('hide')}
 const day=()=>{const x=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(y=>[y.type,y.value]));return `${x.year}-${x.month}-${x.day}`};
 const today=day();
 el('date').value=today;el('date').max=today;
 el('today-label').textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',weekday:'long'}).format(new Date());
-function section(name){for(const n of ['shift','assembly','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
+function section(name){for(const n of ['shift','assembly','history','earnings','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
 el('tab-shift').onclick=()=>section('shift');el('tab-assembly').onclick=()=>section('assembly');
+el('tab-history').onclick=()=>{if(!workerView)return;section('history');loadWorker()};
+el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings');loadWorker()};
 el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
 function option(select,value){const item=document.createElement('option');item.value=value;item.textContent=value;select.append(item)}
 products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('period'),n));
@@ -134,13 +139,12 @@ function adminStatus(value){
 }
 let adminData=null,adminRequest=0,adminLoadedWeek='',adminDataFresh=false;
 function transientAdminError(message){const error=new Error(message);error.retryable=true;return error}
-function adminRequestOnce(week,extra){
+function adminRequestOnce(week,extra,authKey,authToken){
   return new Promise((resolve,reject)=>{
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
     url.searchParams.set('callback',callback);
-    if(adminReadToken)url.searchParams.set('readToken',adminReadToken);
-    else url.searchParams.set('initData',tg.initData);
+    url.searchParams.set(authKey,authToken);
     if(week)url.searchParams.set('week',week);
     for(const [key,value] of Object.entries(extra))url.searchParams.set(key,value);
     const script=document.createElement('script');
@@ -158,16 +162,79 @@ function adminRequestOnce(week,extra){
     script.src=url.toString();document.head.append(script);
   });
 }
-async function adminRequestData(week,extra={},onRetry){
+async function adminRequestData(week,extra={},onRetry,worker=false){
   if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
     throw new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.');
-  if(!adminReadToken&&!tg?.initData)
+  if(worker&&!workerReadToken)
+    throw new Error('Отправьте боту /menu и откройте новый «Личный кабинет» для просмотра своих данных.');
+  if(!worker&&!adminReadToken&&!tg?.initData)
     throw new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».');
+  const authKey=worker?'workerRead':adminReadToken?'readToken':'initData';
+  const authToken=worker?workerReadToken:adminReadToken||tg.initData;
   for(let attempt=0;attempt<2;attempt++){
-    try{return await adminRequestOnce(week,extra)}
+    try{return await adminRequestOnce(week,extra,authKey,authToken)}
     catch(error){if(!error.retryable||attempt===1)throw error;onRetry?.()}
   }
 }
+let workerData=null,workerLoading=false,workerFetchedAt=0;
+const rubles=value=>new Intl.NumberFormat('ru-RU',{
+  style:'currency',currency:'RUB',maximumFractionDigits:2}).format(value);
+const shortDate=value=>String(value||'').split('-').reverse().join('.');
+function renderWorker(){
+  if(!workerData)return;
+  const data=workerData;
+  el('employee-name').textContent=data.name;
+  el('employee-avatar').textContent=Array.from(data.name)[0].toLocaleUpperCase('ru');
+  const entries=data.entries||[];
+  const updated=data.updated?data.updated.slice(11,16)+' МСК':'только что';
+  el('history-status').textContent='Всего заявок: '+data.total+
+    (data.total>entries.length?' · показаны последние '+entries.length:'')+
+    ' · обновлено '+updated+'.';
+  const list=el('history-list');list.replaceChildren();
+  if(!entries.length)list.append(node('p','Пока нет отправленных заявок.','worker-empty'));
+  for(const r of entries){
+    const card=node('article',null,'worker-card');
+    card.append(node('strong',r.product+' × '+r.qty),
+      node('small',shortDate(r.date)+' · заказ № '+r.order+' · '+r.key),
+      node('span',r.status,'worker-badge'));
+    if(r.needsReview)card.append(node('p','Статусы журналов расходятся — уточните у руководителя.','admin-warning'));
+    if(r.photo)addPhotoButton(card,r,true);
+    list.append(card);
+  }
+  el('earnings-week').textContent='Неделя '+shortDate(data.week)+' — '+shortDate(data.weekEnd);
+  const pay=data.payroll||{};
+  el('earnings-earned').textContent=pay.ready?rubles(pay.earned):'—';
+  el('earnings-balance').textContent=pay.ready?rubles(pay.balance):'—';
+  el('earnings-detail').textContent=pay.ready?
+    'На начало недели: '+rubles(pay.opening)+' · выплачено: '+rubles(pay.paid)+
+    '. Остаток = на начало + начислено − выплачено.':
+    (pay.message||'Расчёт пока недоступен.');
+  el('earnings-status').textContent='Обновлено '+updated+'.'+
+    (pay.ready?' Суммы могут измениться до закрытия недели.':' Расчёт не подтверждён.');
+}
+async function loadWorker(force=false){
+  if(!workerView||workerLoading||(!force&&workerData&&Date.now()-workerFetchedAt<120000))return;
+  workerLoading=true;
+  el('history-status').textContent='Загружаю ваши заявки…';
+  el('earnings-status').textContent='Загружаю ваш расчёт…';
+  try{
+    const data=await adminRequestData('',{view:'mine'},()=>{
+      el('history-status').textContent='Ответ не пришёл. Повторяю загрузку…';
+      el('earnings-status').textContent='Ответ не пришёл. Повторяю загрузку…';
+    },true);
+    if(!staff.includes(data?.name)||!Array.isArray(data?.entries))throw new Error('Ответ сервера неполный. Повторите загрузку.');
+    workerData=data;workerFetchedAt=Date.now();renderWorker();
+  }catch(error){
+    workerData=null;workerFetchedAt=0;
+    el('history-list').replaceChildren();
+    el('earnings-earned').textContent='—';el('earnings-balance').textContent='—';
+    el('earnings-detail').textContent='Данные не загружены.';
+    el('history-status').textContent=error.message;
+    el('earnings-status').textContent=error.message;
+  }finally{workerLoading=false}
+}
+el('history-refresh').onclick=()=>loadWorker(true);
+el('earnings-refresh').onclick=()=>loadWorker(true);
 function adminNormalizeWeek(){
   const date=el('admin-week').value;
   const d=new Date(date+'T12:00:00Z');
@@ -258,7 +325,7 @@ function adminCard(root,title,details,edit){
   button.type='button';button.onclick=edit;box.append(button);root.append(box);
   return box;
 }
-function addPhotoButton(box,r){
+function addPhotoButton(box,r,worker=false){
   if(!r.photo)return;
   const button=node('button','Показать фото');button.type='button';
   let errorNode=null;
@@ -266,7 +333,7 @@ function addPhotoButton(box,r){
     button.disabled=true;button.textContent='Загружаю фото…';
     if(errorNode){errorNode.remove();errorNode=null}
     try{
-      const photo=await adminRequestData('',{view:'photo',key:r.key});
+      const photo=await adminRequestData('',{view:worker?'workerPhoto':'photo',key:r.key},undefined,worker);
       if(!box.isConnected)return;
       const img=document.createElement('img');img.className='order-photo';
       img.alt='Фото изделия · '+r.product+' · заказ № '+r.order;
