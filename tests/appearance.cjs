@@ -11,8 +11,10 @@ for (const id of ['settings-open','settings-close','settings-reset','settings-di
 }
 for (const file of ['appearance.css','appearance.js']) assert.ok(html.includes(file));
 for (const value of ['grid','blueprint','warm']) assert.ok(css.includes(`wallpaper-swatch--${value}`));
-assert.match(css,/\.content \{[^}]*background-image: var\(--wallpaper\)/,
-  'Wallpaper must be visible behind the main content, not only outside the app');
+assert.match(css,/\.shell \{[^}]*background-image: var\(--wallpaper\)/,
+  'Wallpaper must continue beneath both the rounded hero and main content');
+assert.match(css,/\.content \{[^}]*background: transparent/,
+  'Main content must not restart the wallpaper at the hero boundary');
 assert.match(css,/\.admin-picker select \{[^}]*background: var\(--surface-soft\);[^}]*color: var\(--ink\)/,
   'The owner employee selector must use matching background and text colors');
 

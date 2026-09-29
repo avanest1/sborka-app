@@ -67,7 +67,9 @@ body {
 }
 :root[data-wallpaper="blueprint"] body { background-size: 24px 24px,24px 24px,120px 120px,120px 120px; }
 :root[data-wallpaper="warm"] body { background-size: cover; }
-.shell { max-width: 640px; background-color: var(--wall-color); box-shadow: var(--shadow); }
+.shell { max-width: 640px; background-color: var(--wall-color); background-image: var(--wallpaper); background-size: 26px 26px,26px 26px,120px 120px,120px 120px; box-shadow: var(--shadow); }
+:root[data-wallpaper="blueprint"] .shell { background-size: 24px 24px,24px 24px,120px 120px,120px 120px; }
+:root[data-wallpaper="warm"] .shell { background-size: cover; }
 .hero {
   padding: max(22px,env(safe-area-inset-top)) 22px 24px;
   background: radial-gradient(circle at 94% 0%,#ffffff19 0,transparent 38%),linear-gradient(135deg,var(--hero-a),var(--hero-b));
@@ -89,9 +91,7 @@ body {
 .hero h1 em { font-style: normal; color: #bfe4c9; }
 .profile { border-radius: 18px; background: #ffffff1b; border-color: #ffffff3b; box-shadow: inset 0 1px #ffffff16; }
 .profile__avatar { background: #f2f2df; color: #254d3c; border-radius: 12px; }
-.content { padding: 20px 18px max(42px,env(safe-area-inset-bottom)); background-color: var(--wall-color); background-image: var(--wallpaper); background-size: 26px 26px,26px 26px,120px 120px,120px 120px; }
-:root[data-wallpaper="blueprint"] .content { background-size: 24px 24px,24px 24px,120px 120px,120px 120px; }
-:root[data-wallpaper="warm"] .content { background-size: cover; }
+.content { padding: 20px 18px max(42px,env(safe-area-inset-bottom)); background: transparent; }
 .day-strip,.action-card,.form-card,#admin .admin-card {
   background: var(--surface); border-color: var(--line); color: var(--ink); box-shadow: var(--shadow);
 }
