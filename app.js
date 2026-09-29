@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const products=['Сборка мангала','Сборка печки','Коптильня','Центральная секция до 2000 мм','Центральная секция 2120 мм','Центральная секция 2350 мм','Решётка для мангала','Дровник','Ручка для мангала','Подарочная доска','Выдвижной ящик','Стеллаж навесной','Шкафчик навесной','Стол','Стул с покраской в 1 слой','Стул с покраской в 2 слоя','Скручивание столов'];
+const products=['Сборка мангала','Сборка печки','Коптильня','Центральная секция до 2000 мм','Центральная секция 2120 мм','Центральная секция 2350 мм','Решётка для мангала','Дровник','Ручка для мангала','Подарочная доска','Выдвижной ящик','Стеллаж навесной','Шкафчик навесной','Стол','Столешница','Фартук','Фартук большой','Стул с покраской в 1 слой','Стул с покраской в 2 слоя','Скручивание столов'];
 const periods=['Основное время','Переработка до 3 ч','Переработка после 3 ч'];
 const parts=['Столешница','Боковой экран','Дверь','Фартук','Полка','Врезка с монтажом','Большой фартук'];
 const staff=['Антон','Нарик','Леня','Фил','Кореш'];
@@ -87,11 +87,12 @@ function assemblyNote(){
 function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
-el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
+el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,kind:el('work-kind').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
 
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
 // the owner's keyboard button. Mutations always use Telegram sendData above.
-const adminEndpoint=new URLSearchParams(location.search).get('api')||'';
+const adminEndpoint=new URLSearchParams(location.search).get('api')||
+  'https://script.google.com/macros/s/AKfycbzvUbRCsLgOFjh6HiPFzcIxIH9_ZXpJ35kWdxNLtnevF2d7NwO5gG5mqsAWUlXxL48i/exec';
 const adminReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminRead')||'';
 const startWeek=()=>{
   const d=new Date(today+'T12:00:00Z');
@@ -163,10 +164,10 @@ function adminRequestOnce(week,extra,authKey,authToken){
   });
 }
 async function adminRequestData(week,extra={},onRetry,worker=false){
+  if(worker&&!workerReadToken)
+    throw new Error('Нет личного ключа. Отправьте боту /menu и откройте новый «Личный кабинет».');
   if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
     throw new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.');
-  if(worker&&!workerReadToken)
-    throw new Error('Отправьте боту /menu и откройте новый «Личный кабинет» для просмотра своих данных.');
   if(!worker&&!adminReadToken&&!tg?.initData)
     throw new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».');
   const authKey=worker?'workerRead':adminReadToken?'readToken':'initData';
@@ -180,6 +181,7 @@ let workerData=null,workerLoading=false,workerFetchedAt=0;
 const rubles=value=>new Intl.NumberFormat('ru-RU',{
   style:'currency',currency:'RUB',maximumFractionDigits:2}).format(value);
 const shortDate=value=>String(value||'').split('-').reverse().join('.');
+const workTitle=r=>(r.kind==='Переделка'?'Переделка · ':'')+r.product+' × '+r.qty;
 function renderWorker(){
   if(!workerData)return;
   const data=workerData;
@@ -194,7 +196,7 @@ function renderWorker(){
   if(!entries.length)list.append(node('p','Пока нет отправленных заявок.','worker-empty'));
   for(const r of entries){
     const card=node('article',null,'worker-card');
-    card.append(node('strong',r.product+' × '+r.qty),
+    card.append(node('strong',workTitle(r)),
       node('small',shortDate(r.date)+' · заказ № '+r.order+' · '+r.key),
       node('span',r.status,'worker-badge'));
     if(r.needsReview)card.append(node('p','Статусы журналов расходятся — уточните у руководителя.','admin-warning'));
@@ -413,7 +415,7 @@ function renderGlobalSearch(data){
     (data.total>entries.length?' · показаны первые '+entries.length:'');
   if(!entries.length)return;
   for(const r of entries){
-    const box=adminCard(root,r.product+' × '+r.qty,
+    const box=adminCard(root,workTitle(r),
       r.date+' · '+r.name+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,
       ()=>editAssembly(r));
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>
@@ -463,7 +465,7 @@ function renderOrder(data){
   root.append(summary);
   for(const r of entries){
     const box=node('div',null,'admin-card');
-    box.append(node('strong',r.product+' × '+r.qty),
+    box.append(node('strong',workTitle(r)),
       node('small',r.date+' · '+r.name+' · '+r.status));
     if(r.product==='Стол')box.append(node('p','Состав стола: '+parts.map((name,i)=>
       Number(r.parts[i])>0?name+' × '+r.parts[i]:'').filter(Boolean).join(', ')));
@@ -504,7 +506,7 @@ function renderAdmin(){
   alerts.append(node('strong',checks.length?'Проверьте записи: '+checks.length:'Расхождений и незакрытых прошлых смен за неделю не найдено.'));
   checks.forEach(message=>alerts.append(node('p',message,'admin-warning')));
   assembly.forEach(r=>{
-    const box=adminCard(a,r.name+' · '+r.product+' × '+r.qty,
+    const box=adminCard(a,r.name+' · '+workTitle(r),
       r.date+' · заказ № '+r.order+' · '+r.status+' · строка '+r.row,()=>editAssembly(r));
     if(adminData?.bulkAccept===true&&!r.statusMismatch&&
         (r.status==='Ожидает приёмки'||r.status==='Своя переделка')){
@@ -546,6 +548,7 @@ function editAssembly(r){
   const date=field(form,'Дата сборки','date',r.date);
   date.min='2026-09-14';date.max=today;
   const name=field(form,'Сотрудник','select',r.name,staff);
+  const kind=field(form,'Тип работы','select',r.kind||'Сборка',['Сборка','Переделка']);
   const product=field(form,'Изделие','select',r.product,products);
   const qty=field(form,'Количество изделий','number',r.qty);qty.min='1';qty.max='100000';qty.step='1';
   const table=node('div',null,'admin-fields');form.append(table);
@@ -571,7 +574,7 @@ function editAssembly(r){
       adminStatus('Проверьте количество изделий.');return;
     }
     send({version:1,type:'adminEditAssembly',row:r.row,key:r.key,rev:r.rev,date:date.value,
-      name:name.value,product:product.value,qty:count,parts:isTable?values:[],
+      name:name.value,kind:kind.value,product:product.value,qty:count,parts:isTable?values:[],
       period:period.value,status:r.status,order:order.value.trim(),note:note.value.trim()});
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
