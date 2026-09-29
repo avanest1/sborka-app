@@ -82,6 +82,8 @@
       <nav class="tabs" aria-label="Разделы приложения">
         <button id="tab-shift" class="tab active" type="button" aria-controls="shift" aria-selected="true">◷ &nbsp; Моя смена</button>
         <button id="tab-assembly" class="tab" type="button" aria-controls="assembly" aria-selected="false">▦ &nbsp; Сборка</button>
+        <button id="tab-history" class="tab hide" type="button" aria-controls="history" aria-selected="false">◴ &nbsp; Заявки</button>
+        <button id="tab-earnings" class="tab hide" type="button" aria-controls="earnings" aria-selected="false">₽ &nbsp; Заработок</button>
         <button id="tab-admin" class="tab hide" type="button" aria-controls="admin" aria-selected="false">✎ &nbsp; Учёт</button>
       </nav>
       <section id="shift" aria-labelledby="shift-title">
@@ -89,6 +91,22 @@
         <div class="action-card action-card--arrival"><div class="action-card__icon" aria-hidden="true">↗</div><div class="action-card__body"><h3>Пришёл на работу</h3><p>Бот зафиксирует время вашего прихода.</p></div><button class="action-button action-button--arrival" id="arrive" type="button">Отметить приход <span aria-hidden="true">→</span></button></div>
         <div class="action-card action-card--leave"><div class="action-card__icon" aria-hidden="true">↘</div><div class="action-card__body"><h3>Закончил работу</h3><p>Бот запишет уход и рассчитает переработку.</p></div><button class="action-button action-button--leave" id="leave" type="button">Отметить уход <span aria-hidden="true">→</span></button></div>
         <div class="tip"><span aria-hidden="true">ⓘ</span><p>Время берётся из сообщения Telegram. После отметки приложение закроется, а подтверждение придёт в чат от бота.</p></div>
+      </section>
+      <section id="history" class="hide" aria-labelledby="history-title">
+        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ ЖУРНАЛ</span><h2 id="history-title">Мои заявки</h2><p>Ваши сборки и решения по приёмке. Данные доступны только вам.</p></div>
+        <button id="history-refresh" class="worker-refresh" type="button">Обновить заявки</button>
+        <p id="history-status" class="worker-status" role="status">Откройте раздел, чтобы загрузить заявки.</p>
+        <div id="history-list" class="worker-list"></div>
+      </section>
+      <section id="earnings" class="hide" aria-labelledby="earnings-title">
+        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ РАСЧЁТ</span><h2 id="earnings-title">Заработок</h2><p>Только ваши данные из листа «Расчёт».</p></div>
+        <button id="earnings-refresh" class="worker-refresh" type="button">Обновить расчёт</button>
+        <p id="earnings-status" class="worker-status" role="status">Откройте раздел, чтобы загрузить расчёт.</p>
+        <div class="worker-pay-card">
+          <p id="earnings-week" class="worker-pay-week">Текущая неделя</p>
+          <div class="worker-pay-grid"><div><span>Начислено за неделю</span><strong id="earnings-earned">—</strong></div><div><span>Текущий остаток</span><strong id="earnings-balance">—</strong></div></div>
+          <p id="earnings-detail" class="worker-pay-detail">Остаток включает долг на начало недели, начисление и выплаты.</p>
+        </div>
       </section>
       <section id="admin" class="hide" aria-labelledby="admin-title">
         <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
@@ -137,7 +155,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 19</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 20</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
