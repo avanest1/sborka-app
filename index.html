@@ -60,15 +60,17 @@
     #admin .order-note{white-space:pre-wrap;overflow-wrap:anywhere}
   </style>
   <script>
+    document.write('<link rel="stylesheet" href="./appearance.css?fresh=' + assetRefresh + '">');
+    document.write('<script src="./appearance.js?fresh=' + assetRefresh + '" defer><\/script>');
     document.write('<script src="./app.js?fresh=' + assetRefresh + '" defer><\/script>');
   </script>
 </head>
 <body>
   <main class="shell">
     <header class="hero">
-      <div class="hero__top"><span class="brand-mark" aria-hidden="true">▦</span><span class="brand">СБОРОЧНЫЙ УЧАСТОК</span><span class="hero__dot" aria-hidden="true"></span></div>
+      <div class="hero__top"><span class="brand-mark" aria-hidden="true">▦</span><span class="brand">СБОРОЧНЫЙ УЧАСТОК</span><button class="settings-trigger" id="settings-open" type="button" aria-label="Открыть настройки" aria-haspopup="dialog" aria-controls="settings-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v2m0 13v2m8.5-8.5h-2m-13 0h-2m14.5-6.5-1.4 1.4M7.4 16.6 6 18m12 0-1.4-1.4M7.4 7.4 6 6m6 2.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg></button></div>
       <div class="hero__label" id="hero-label">Личный кабинет сборщика</div>
-      <h1>Рабочий день<br>под контролем.</h1>
+      <h1>Всё по делу.<br><em>Всё под рукой.</em></h1>
       <div class="profile" aria-label="Профиль сотрудника">
         <div class="profile__avatar" id="employee-avatar" aria-hidden="true">·</div>
         <div class="profile__text"><span class="profile__caption">СОТРУДНИК</span><strong id="employee-name">Откройте через бота</strong></div>
@@ -135,8 +137,36 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 18</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 19</footer>
     </div>
   </main>
+  <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="settings-sheet">
+      <div class="settings-head"><div><span class="settings-eyebrow">ВАШЕ ПРОСТРАНСТВО</span><h2 id="settings-title">Настройки</h2></div><button class="settings-close" id="settings-close" type="button" aria-label="Закрыть настройки">×</button></div>
+      <p class="settings-intro">Подстройте приложение под себя. Записи и данные учёта от оформления не изменятся.</p>
+      <fieldset class="settings-group"><legend>Тема</legend><div class="settings-options" data-setting="theme">
+        <label class="settings-choice"><input type="radio" name="appearance-theme" value="system"><span class="settings-choice__icon">◐</span><span>Как в телефоне</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-theme" value="light"><span class="settings-choice__icon">☀</span><span>Светлая</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-theme" value="dark"><span class="settings-choice__icon">☾</span><span>Тёмная</span></label>
+      </div></fieldset>
+      <fieldset class="settings-group"><legend>Обои</legend><div class="settings-options settings-options--walls" data-setting="wallpaper">
+        <label class="settings-choice"><input type="radio" name="appearance-wallpaper" value="plain"><span class="wallpaper-swatch wallpaper-swatch--plain"></span><span>Чистый</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-wallpaper" value="grid"><span class="wallpaper-swatch wallpaper-swatch--grid"></span><span>Сетка</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-wallpaper" value="blueprint"><span class="wallpaper-swatch wallpaper-swatch--blueprint"></span><span>Чертёж</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-wallpaper" value="warm"><span class="wallpaper-swatch wallpaper-swatch--warm"></span><span>Тёплый</span></label>
+      </div></fieldset>
+      <fieldset class="settings-group"><legend>Акцент</legend><div class="settings-options" data-setting="accent">
+        <label class="settings-choice"><input type="radio" name="appearance-accent" value="pine"><span class="accent-swatch accent-swatch--pine"></span><span>Хвойный</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-accent" value="blue"><span class="accent-swatch accent-swatch--blue"></span><span>Синий</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-accent" value="clay"><span class="accent-swatch accent-swatch--clay"></span><span>Терракота</span></label>
+      </div></fieldset>
+      <fieldset class="settings-group"><legend>Размер текста</legend><div class="settings-options settings-options--two" data-setting="size">
+        <label class="settings-choice"><input type="radio" name="appearance-size" value="normal"><span>Обычный</span></label>
+        <label class="settings-choice"><input type="radio" name="appearance-size" value="large"><span>Крупнее</span></label>
+      </div></fieldset>
+      <button class="settings-reset" id="settings-reset" type="button">Сбросить оформление</button>
+      <p class="settings-footnote">Выбор хранится только в этом браузере и может сброситься при очистке данных Telegram.</p>
+    </div>
+  </div>
 </body>
 </html>
