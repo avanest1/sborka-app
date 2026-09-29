@@ -17,6 +17,12 @@ assert.match(css,/\.content \{[^}]*background: transparent/,
   'Main content must not restart the wallpaper at the hero boundary');
 assert.match(css,/\.admin-picker select \{[^}]*background: var\(--surface-soft\);[^}]*color: var\(--ink\)/,
   'The owner employee selector must use matching background and text colors');
+assert.match(css,/#admin \.admin-card button \{[^}]*border-radius: 999px/,
+  'Buttons in owner cards must have the same pill shape as Delete');
+assert.match(css,/#admin \.admin-accept-actions \.admin-delete \{[^}]*color: #ae4d3c/,
+  'Delete must remain a red-text action');
+assert.match(css,/#admin \.admin-accept-actions \.admin-primary \{[^}]*background: var\(--accent\)/,
+  'Accept must remain the primary action');
 
 function load(saved) {
   const listeners = new Map();
