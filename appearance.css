@@ -114,7 +114,7 @@ body {
 .action-card__body p { margin: 0 0 14px; }
 .action-button { grid-column: 1 / -1; }
 .action-button,.submit,#admin .admin-tools button,#admin .order-search button,#admin .admin-bulk button {
-  border-radius: 13px; background: var(--accent); color: var(--on-accent); min-height: 50px;
+  border-radius: 999px; background: var(--accent); color: var(--on-accent); min-height: 50px;
 }
 .action-button--leave { background: var(--surface-soft); color: var(--ink); border: 1px solid var(--line); }
 .tip,.admin-picker,#admin .admin-queue-summary,#admin .admin-bulk,#admin .order-summary { background: var(--accent-soft); color: var(--accent-strong); border-radius: 16px; }
@@ -134,8 +134,22 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 #admin .admin-queue-filters input,#admin .admin-queue-filters select,#admin .admin-tools input,#admin .admin-fields input,#admin .admin-fields select,#admin .admin-fields textarea { background: var(--surface-soft); color: var(--ink); border-color: var(--line); }
 #admin .admin-accounting { color: var(--accent-strong); }
 #admin .admin-select input { accent-color: var(--accent); }
-#admin .admin-accept-actions button:not(.admin-delete),#admin .admin-card button:not(.admin-delete) { border-color: var(--line); }
-#admin .admin-accept-actions .admin-delete { background: var(--surface-soft); color: #ae4d3c; border: 0; }
+#admin .admin-card button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 42px; max-width: 100%; margin: 10px 8px 0 0; padding: 8px 16px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface-soft); color: var(--ink);
+  font-weight: 650; line-height: 1.2; text-align: center;
+}
+#admin .admin-accept-actions { margin-top: 14px; }
+#admin .admin-accept-actions button { flex: 1 1 130px; min-height: 46px; margin: 0; }
+#admin .admin-accept-actions .admin-primary {
+  background: var(--accent); color: var(--on-accent); border-color: transparent;
+}
+#admin .admin-accept-actions .admin-delete {
+  flex-basis: 100%; background: var(--surface-soft); color: #ae4d3c; border: 0;
+}
+#admin .admin-card button:disabled { opacity: .55; cursor: wait; }
 #admin .order-photo { background: var(--surface-soft); }
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline-color: #efb85e; }
 
