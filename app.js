@@ -79,7 +79,7 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}if(adminView&&!['photoHelp','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
@@ -132,12 +132,10 @@ function field(parent,label,type,value,options){
 function adminStatus(value){
   el('admin-status').textContent=value;
 }
-let adminData=null,adminRequest=0;
-function adminRequestData(week, extra={}){
+let adminData=null,adminRequest=0,adminLoadedWeek='',adminDataFresh=false;
+function transientAdminError(message){const error=new Error(message);error.retryable=true;return error}
+function adminRequestOnce(week,extra){
   return new Promise((resolve,reject)=>{
-    if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
-      return reject(new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.'));
-    if(!adminReadToken&&!tg?.initData)return reject(new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».'));
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
     const url=new URL(adminEndpoint);
     url.searchParams.set('callback',callback);
@@ -154,10 +152,21 @@ function adminRequestData(week, extra={}){
       error?reject(error):resolve(data);
     }
     window[callback]=r=>r?.ok?finish(null,r.data):finish(new Error(r?.message||'Нет ответа сервера.'));
-    script.onerror=()=>finish(new Error('Не удалось загрузить данные. Проверьте развертывание веб-приложения.'));
-    timeout=setTimeout(()=>finish(new Error('Сервер долго отвечает. Повторите обновление.')),30000);
+    script.onerror=()=>finish(transientAdminError('Ответ не дошёл до приложения. Проверьте соединение и повторите обновление.'));
+    script.onload=()=>{if(!done)finish(transientAdminError('Приложение не получило ответ. Повторите обновление.'))};
+    timeout=setTimeout(()=>finish(transientAdminError('Ответ не получен вовремя. Проверьте соединение и повторите обновление.')),25000);
     script.src=url.toString();document.head.append(script);
   });
+}
+async function adminRequestData(week,extra={},onRetry){
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
+    throw new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.');
+  if(!adminReadToken&&!tg?.initData)
+    throw new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».');
+  for(let attempt=0;attempt<2;attempt++){
+    try{return await adminRequestOnce(week,extra)}
+    catch(error){if(!error.retryable||attempt===1)throw error;onRetry?.()}
+  }
 }
 function adminNormalizeWeek(){
   const date=el('admin-week').value;
@@ -218,22 +227,27 @@ el('admin-filter-query').oninput=updateAdminQueue;
 async function loadAdmin(){
   if(!adminView)return;
   const generation=++adminRequest;
+  let requestedWeek='';
   el('admin-editor').classList.add('hide');
   selectedAssemblies.clear();bulkSelectionStatus();el('admin-bulk').classList.add('hide');
-  adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren();
-  el('admin-queue-summary').textContent='Загружаю очередь приёмки…';
-  el('admin-queue-result').textContent='';
-  adminStatus('Загружаю записи…');
+  adminDataFresh=false;
   try{
-    const week=adminNormalizeWeek();
-    const data=await adminRequestData(week);
+    const week=adminNormalizeWeek();requestedWeek=week;
+    const keepSnapshot=adminData!==null&&week===adminLoadedWeek;
+    if(!keepSnapshot){adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren();
+      el('admin-queue-summary').textContent='Загружаю очередь приёмки…';el('admin-queue-result').textContent=''}
+    adminStatus(keepSnapshot?'Обновляю записи… Пока показан предыдущий список; действия недоступны.':'Загружаю записи…');
+    const data=await adminRequestData(week,{},()=>{if(generation===adminRequest)adminStatus('Ответ не пришёл. Повторяю загрузку…')});
     if(generation!==adminRequest)return;
-    adminData=data;
+    adminData=data;adminLoadedWeek=week;adminDataFresh=true;
     renderAdmin();
     adminStatus('Обновлено: '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date())+' МСК.');
-  }catch(error){if(generation===adminRequest){adminStatus(error.message);adminData=null;
-    el('admin-queue-summary').textContent='Очередь приёмки не загружена.';
-    el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren()}}
+  }catch(error){if(generation===adminRequest){
+    const keepSnapshot=adminData!==null&&requestedWeek===adminLoadedWeek;
+    adminStatus(error.message+(keepSnapshot?' Показан предыдущий список; изменение записей недоступно.':''));
+    if(!keepSnapshot){adminData=null;el('admin-queue-summary').textContent='Очередь приёмки не загружена.';
+      el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren()}
+  }}
 }
 el('admin-refresh').onclick=loadAdmin;
 el('admin-week').onchange=loadAdmin;
