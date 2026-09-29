@@ -298,7 +298,7 @@ function acceptanceChoices(r){
 }
 function addAcceptanceButtons(actions,r){
   for(const [caption,status] of acceptanceChoices(r)){
-    const button=node('button',caption);
+    const button=node('button',caption,status==='Принято'?'admin-primary':'');
     button.type='button';button.onclick=()=>acceptAssembly(r,status);
     actions.append(button);
   }
