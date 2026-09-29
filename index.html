@@ -139,6 +139,7 @@
         <form id="assembly-form">
           <div class="form-card"><div class="form-card__heading"><span class="form-card__index">01</span><h3>Что собрали</h3></div>
             <label class="field" for="date">Дата сборки</label><input required type="date" id="date" min="2026-09-14">
+            <label class="field" for="work-kind">Тип работы</label><select id="work-kind" required><option value="Сборка">Сборка</option><option value="Переделка">Переделка · 50% расценки</option></select>
             <label class="field" for="product">Изделие</label><select id="product" required><option value="">Выберите изделие</option></select>
             <div id="ordinary"><label class="field" for="qty">Количество, шт.</label><input id="qty" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required></div>
             <div id="table-parts" class="hide"><p class="form-hint">Один стол. Укажите нужные элементы и количество каждого.</p><div id="parts"></div></div>
@@ -155,7 +156,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 20</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 21</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
