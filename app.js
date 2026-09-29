@@ -52,7 +52,7 @@ const visibleName=employee||(telegramFirstName?telegramFirstName:'Откройт
 el('employee-name').textContent=visibleName;
 el('employee-avatar').textContent=visibleName==='Откройте через бота'?'·':Array.from(visibleName)[0].toLocaleUpperCase('ru');
 if(!employee)document.querySelector('.profile__caption').textContent=telegramFirstName?'ПРОФИЛЬ TELEGRAM':'СОТРУДНИК';
-if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');document.querySelector('.tabs').classList.add('admin-tabs');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>option(el('admin-employee'),n))}
+if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');document.querySelector('.tabs').classList.add('admin-tabs');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>{option(el('admin-employee'),n);option(el('admin-filter-employee'),n)})}
 const day=()=>{const x=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(y=>[y.type,y.value]));return `${x.year}-${x.month}-${x.day}`};
 const today=day();
 el('date').value=today;el('date').max=today;
@@ -170,12 +170,59 @@ function adminNormalizeWeek(){
   el('admin-period').textContent='Период: '+monday.split('-').reverse().join('.')+' — '+end.toISOString().slice(0,10).split('-').reverse().join('.');
   return monday;
 }
+function accountingIssue(r){
+  return (r.payCheck!==undefined&&r.payCheck!=='OK')||
+    (r.bonusCheck!==undefined&&r.bonusCheck!=='OK');
+}
+function accountingSummary(r){
+  if(r.payCheck===undefined)return null;
+  if(accountingIssue(r))return {warning:true,text:'Проверьте расчёт: '+
+    [r.payCheck!=='OK'?r.payCheck||'проверка сделки недоступна':'',
+      r.bonusCheck!=='OK'?r.bonusCheck||'проверка надбавки недоступна':'']
+      .filter(Boolean).join(' · ')};
+  const amount=Number(r.payAmount),bonus=Number(r.payBonus);
+  if(!Number.isFinite(amount)||!Number.isFinite(bonus))
+    return {warning:true,text:'Проверьте расчёт: сумма по заявке недоступна.'};
+  const rubles=value=>new Intl.NumberFormat('ru-RU',{
+    style:'currency',currency:'RUB',maximumFractionDigits:2}).format(value);
+  return {warning:false,text:'В расчёте по заявке: сделка '+rubles(amount)+
+    ' · надбавка '+rubles(bonus)};
+}
+function addAccountingStatus(box,r){
+  const result=accountingSummary(r);
+  if(result)box.append(node('p',result.text,result.warning?'admin-warning':'admin-accounting'));
+}
+function filterAssemblyRows(rows,filters){
+  const query=filters.query.trim().toLocaleLowerCase('ru');
+  return rows.filter(r=>{
+    if(filters.status==='attention'&&!r.statusMismatch&&!accountingIssue(r)&&
+        r.status!=='Ожидает приёмки'&&r.status!=='Своя переделка')return false;
+    if(filters.status!=='attention'&&filters.status!=='all'&&r.status!==filters.status)return false;
+    if(filters.employee&&r.name!==filters.employee)return false;
+    return !query||[r.key,r.order,r.product,r.name].some(value=>
+      String(value||'').toLocaleLowerCase('ru').includes(query));
+  });
+}
+function queueFilters(){
+  return {status:el('admin-filter-status').value,employee:el('admin-filter-employee').value,
+    query:el('admin-filter-query').value};
+}
+function updateAdminQueue(){
+  if(selectedAssemblies.size)adminStatus('Фильтр изменён. Выбор заявок сброшен.');
+  selectedAssemblies.clear();bulkSelectionStatus();
+  if(adminData)renderAdmin();
+}
+el('admin-filter-status').onchange=updateAdminQueue;
+el('admin-filter-employee').onchange=updateAdminQueue;
+el('admin-filter-query').oninput=updateAdminQueue;
 async function loadAdmin(){
   if(!adminView)return;
   const generation=++adminRequest;
   el('admin-editor').classList.add('hide');
   selectedAssemblies.clear();bulkSelectionStatus();el('admin-bulk').classList.add('hide');
   adminData=null;el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren();
+  el('admin-queue-summary').textContent='Загружаю очередь приёмки…';
+  el('admin-queue-result').textContent='';
   adminStatus('Загружаю записи…');
   try{
     const week=adminNormalizeWeek();
@@ -185,6 +232,7 @@ async function loadAdmin(){
     renderAdmin();
     adminStatus('Обновлено: '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date())+' МСК.');
   }catch(error){if(generation===adminRequest){adminStatus(error.message);adminData=null;
+    el('admin-queue-summary').textContent='Очередь приёмки не загружена.';
     el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren()}}
 }
 el('admin-refresh').onclick=loadAdmin;
@@ -195,6 +243,27 @@ function adminCard(root,title,details,edit){
   const button=node('button','Исправить');
   button.type='button';button.onclick=edit;box.append(button);root.append(box);
   return box;
+}
+function addPhotoButton(box,r){
+  if(!r.photo)return;
+  const button=node('button','Показать фото');button.type='button';
+  let errorNode=null;
+  button.onclick=async()=>{
+    button.disabled=true;button.textContent='Загружаю фото…';
+    if(errorNode){errorNode.remove();errorNode=null}
+    try{
+      const photo=await adminRequestData('',{view:'photo',key:r.key});
+      if(!box.isConnected)return;
+      const img=document.createElement('img');img.className='order-photo';
+      img.alt='Фото изделия · '+r.product+' · заказ № '+r.order;
+      img.src=photo.src;button.replaceWith(img);
+    }catch(error){
+      if(!box.isConnected)return;
+      button.disabled=false;button.textContent='Повторить загрузку фото';
+      errorNode=node('p',error.message,'admin-warning');box.append(errorNode);
+    }
+  };
+  box.append(button);
 }
 function acceptAssembly(r,status){
   const message=r.statusMismatch&&status===r.status?'Согласовать статус в двух журналах?':
@@ -269,7 +338,8 @@ function renderGlobalSearch(data){
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>
       r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
     if(r.note)box.insertBefore(node('p',r.note,'order-note'),box.lastChild);
-    if(r.photo)box.append(node('small','Фото привязано · откройте карточку заказа.'));
+    addAccountingStatus(box,r);
+    addPhotoButton(box,r);
     if(r.statusMismatch)box.append(node('p','Статусы журналов расходятся; действует решение основной таблицы.','admin-warning'));
     const actions=node('div',null,'admin-accept-actions');
     const order=node('button','Карточка заказа');order.type='button';
@@ -317,21 +387,10 @@ function renderOrder(data){
     if(r.product==='Стол')box.append(node('p','Состав стола: '+parts.map((name,i)=>
       Number(r.parts[i])>0?name+' × '+r.parts[i]:'').filter(Boolean).join(', ')));
     if(r.note)box.append(node('p','Комментарий сборщика: '+r.note,'order-note'));
+    addAccountingStatus(box,r);
     if(r.statusMismatch)box.append(node('p','Статусы журналов расходятся; показано решение основной таблицы.','admin-warning'));
     if(r.photo){
-      const button=node('button','Показать фото');button.type='button';
-      button.onclick=async()=>{
-        button.disabled=true;button.textContent='Загружаю фото…';
-        try{
-          const photo=await adminRequestData('',{view:'photo',key:r.key});
-          if(!box.isConnected)return;
-          const img=document.createElement('img');img.className='order-photo';
-          img.alt='Фото изделия · '+r.product+' · заказ № '+data.order;
-          img.src=photo.src;button.replaceWith(img);
-        }catch(error){button.disabled=false;button.textContent='Повторить загрузку фото';
-          box.append(node('p',error.message,'admin-warning'))}
-      };
-      box.append(button);
+      addPhotoButton(box,r);
       if(r.photoOrder&&r.photoOrder!==r.order)box.append(node('small','При отправке фото был указан заказ № '+r.photoOrder));
     }else box.append(node('small','Фото к этой заявке не привязано.'));
     const actions=node('div',null,'admin-accept-actions');
@@ -346,11 +405,19 @@ function renderOrder(data){
 function renderAdmin(){
   const a=el('admin-assembly-list'),t=el('admin-attendance-list');
   const alerts=el('admin-checks');a.replaceChildren();t.replaceChildren();alerts.replaceChildren();
-  const assembly=adminData?.assembly||[];
+  const allAssembly=adminData?.assembly||[];
+  const assembly=filterAssemblyRows(allAssembly,queueFilters());
   const attendance=adminData?.attendance||[];
   el('admin-bulk').classList.toggle('hide',adminData?.bulkAccept!==true);
   bulkSelectionStatus();
-  if(!assembly.length)a.append(node('p','За выбранную неделю сборки не найдены.'));
+  const pending=allAssembly.filter(r=>r.status==='Ожидает приёмки').length;
+  const rework=allAssembly.filter(r=>r.status==='Своя переделка').length;
+  const mismatches=allAssembly.filter(r=>r.statusMismatch).length;
+  const accountingProblems=allAssembly.filter(accountingIssue).length;
+  el('admin-queue-summary').textContent='Ожидают приёмки: '+pending+' · На переделке: '+rework+
+    ' · Расхождения: '+mismatches+' · Ошибки расчёта: '+accountingProblems;
+  el('admin-queue-result').textContent='Показано '+assembly.length+' из '+allAssembly.length+' заявок за неделю';
+  if(!assembly.length)a.append(node('p',allAssembly.length?'По выбранным фильтрам заявок нет.':'За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
   const checks=(adminData?.checks||[]).filter(message=>!message.startsWith('Проверьте возможный повтор изделия:'));
   alerts.append(node('strong',checks.length?'Проверьте записи: '+checks.length:'Расхождений и незакрытых прошлых смен за неделю не найдено.'));
@@ -376,6 +443,8 @@ function renderAdmin(){
     if(r.product==='Стол')box.insertBefore(node('p',parts.map((p,i)=>r.parts[i]>0?p+' × '+r.parts[i]:'').filter(Boolean).join(', ')),box.lastChild);
     if(r.note)box.insertBefore(node('p',r.note.length>220?r.note.slice(0,220)+'…':r.note),box.lastChild);
     if(r.statusMismatch)box.insertBefore(node('p','Статусы двух таблиц различаются. Решение в закрытой таблице имеет приоритет.','admin-warning'),box.lastChild);
+    addAccountingStatus(box,r);
+    addPhotoButton(box,r);
     const openOrder=node('button','Карточка заказа');openOrder.type='button';
     openOrder.onclick=()=>{el('order-number').value=String(r.order).split(/[,;\n]/)[0].trim();
       loadOrder();el('order-search').scrollIntoView({behavior:'smooth',block:'start'})};

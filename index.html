@@ -34,13 +34,20 @@
     #admin .admin-fields{display:grid;gap:6px;margin:10px 0}
     #admin .admin-fields input,#admin .admin-fields select,#admin .admin-fields textarea{width:100%}
     #admin .admin-warning{color:#725114;font-size:13px}
+    #admin .admin-accounting{color:#235d4c;font-size:13px;font-weight:650}
     #admin .admin-accept-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     #admin .admin-accept-actions button{flex:1 1 130px;min-height:42px}
-    #admin .admin-accept-actions .admin-delete{background:#fff1ec;color:#9c2e22;border:1px solid #e3aba3}
+    #admin .admin-accept-actions .admin-delete{background:#e9e9ed;color:#9c2e22;border:0;border-radius:999px}
     #admin .admin-bulk{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:12px;margin:10px 0;background:#eaf5ed;border-radius:14px}
     #admin .admin-bulk.hide{display:none}
     #admin .admin-bulk button{min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:#235d4c;color:#fff}
     #admin .admin-bulk button:disabled{opacity:.45}
+    #admin .admin-queue-summary{padding:12px 14px;margin:10px 0;border-radius:12px;background:#eaf5ed;color:#235d4c;font-size:13px;line-height:1.45}
+    #admin .admin-queue-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+    #admin .admin-queue-filters label{min-width:0;color:#3b5548;font-size:12px;font-weight:700}
+    #admin .admin-queue-filters input,#admin .admin-queue-filters select{margin-top:5px}
+    #admin .admin-queue-filters .admin-queue-search{grid-column:1/-1}
+    #admin .admin-queue-result{font-size:13px;color:#688176;margin:6px 0 10px}
     #admin .admin-select{display:flex;align-items:center;gap:12px;min-height:44px;margin-bottom:10px;font-weight:600;color:#235d4c}
     #admin .admin-select input{width:22px;height:22px;accent-color:#235d4c}
     #admin .order-search{display:flex;gap:8px;align-items:end;margin:14px 0}
@@ -83,21 +90,28 @@
       </section>
       <section id="admin" class="hide" aria-labelledby="admin-title">
         <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
+        <h3 class="admin-group">Выбранная неделя</h3>
+        <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
+        <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
+        <p id="admin-period"></p><div id="admin-status" role="status"></div>
+        <div id="admin-checks" role="status"></div>
+        <h3 class="admin-group">Очередь приёмки</h3>
+        <div id="admin-queue-summary" class="admin-queue-summary" role="status">Загрузите неделю, чтобы увидеть очередь приёмки.</div>
+        <div class="admin-queue-filters">
+          <label for="admin-filter-status">Статус<select id="admin-filter-status"><option value="attention">Требуют решения</option><option value="Ожидает приёмки">Ожидает приёмки</option><option value="Своя переделка">На переделке</option><option value="Принято">Принято</option><option value="all">Все</option></select></label>
+          <label for="admin-filter-employee">Сотрудник<select id="admin-filter-employee"><option value="">Все сотрудники</option></select></label>
+          <label for="admin-filter-query" class="admin-queue-search">Поиск в выбранной неделе<input id="admin-filter-query" type="search" placeholder="Заказ, изделие или ID заявки" autocomplete="off"></label>
+        </div>
+        <p id="admin-queue-result" class="admin-queue-result"></p>
+        <div id="admin-bulk" class="admin-bulk hide"><strong id="admin-bulk-count">Выбрано: 0 из 8</strong><button id="admin-bulk-accept" type="button" disabled>Принять выбранные</button></div>
+        <div id="admin-assembly-list"></div>
+        <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
         <h3 class="admin-group">Поиск по всей сборке</h3>
         <form id="global-search" class="order-search"><label for="global-query">№ заказа, изделие или сотрудник<input id="global-query" type="search" minlength="2" maxlength="80" placeholder="Например: 1488, стол, Леня" autocomplete="off" required></label><button type="submit">Найти</button></form>
         <div id="global-status" role="status"></div><div id="global-results" class="order-card-list"></div>
         <h3 class="admin-group">Карточка заказа · все недели</h3>
         <form id="order-search" class="order-search"><label for="order-number">№ заказа<input id="order-number" type="search" maxlength="80" placeholder="Например, 1642" autocomplete="off" required></label><button type="submit">Найти</button></form>
         <div id="order-status" role="status"></div><div id="order-card" class="order-card-list"></div>
-        <h3 class="admin-group">Учёт по неделям</h3>
-        <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
-        <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
-        <p id="admin-period"></p><div id="admin-status" role="status"></div>
-        <div id="admin-checks" role="status"></div>
-        <h3 class="admin-group">Сборка</h3>
-        <div id="admin-bulk" class="admin-bulk hide"><strong id="admin-bulk-count">Выбрано: 0 из 8</strong><button id="admin-bulk-accept" type="button" disabled>Принять выбранные</button></div>
-        <div id="admin-assembly-list"></div>
-        <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
         <div id="admin-editor" class="hide form-card"></div>
       </section>
       <section id="assembly" class="hide" aria-labelledby="assembly-title">
@@ -121,7 +135,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 17</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 18</footer>
     </div>
   </main>
 </body>
