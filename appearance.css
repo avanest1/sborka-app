@@ -67,7 +67,7 @@ body {
 }
 :root[data-wallpaper="blueprint"] body { background-size: 24px 24px,24px 24px,120px 120px,120px 120px; }
 :root[data-wallpaper="warm"] body { background-size: cover; }
-.shell { max-width: 640px; background-color: var(--wall-color); background-image: var(--wallpaper); background-size: 26px 26px,26px 26px,120px 120px,120px 120px; box-shadow: var(--shadow); }
+.shell { width: 100%; min-width: 0; max-width: 640px; background-color: var(--wall-color); background-image: var(--wallpaper); background-size: 26px 26px,26px 26px,120px 120px,120px 120px; box-shadow: var(--shadow); }
 :root[data-wallpaper="blueprint"] .shell { background-size: 24px 24px,24px 24px,120px 120px,120px 120px; }
 :root[data-wallpaper="warm"] .shell { background-size: cover; }
 .hero {
@@ -157,8 +157,9 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
   font-weight: 750;
 }
 .worker-status { margin: 12px 3px 15px; color: var(--muted); font-size: .83rem; line-height: 1.45; }
-.worker-list { display: grid; gap: 12px; }
+.worker-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
 .worker-card,.worker-pay-card {
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
   padding: 18px; border: 1px solid var(--line); border-radius: 20px;
   background: var(--surface); color: var(--ink); box-shadow: var(--shadow);
 }
@@ -171,6 +172,7 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
   font-size: .78rem; font-weight: 750;
 }
 .worker-card button {
+  max-width: 100%; white-space: normal;
   display: block; min-height: 42px; margin-top: 13px; padding: 8px 16px;
   border: 1px solid var(--line); border-radius: 999px;
   background: var(--surface-soft); color: var(--ink); font-weight: 650;
