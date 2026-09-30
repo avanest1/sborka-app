@@ -237,3 +237,9 @@ body.settings-open { overflow: hidden; }
   .brand { font-size: 10px; }
   .settings-options--walls { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+#admin.bot-report-only > :not(.section-heading):not(.admin-tools):not(#admin-status) {
+  display: none !important;
+}
+#admin.bot-report-only .admin-tools label {
+  display: none !important;
+}
