@@ -93,25 +93,25 @@
         <div class="tip"><span aria-hidden="true">ⓘ</span><p>Время берётся из сообщения Telegram. После отметки приложение закроется, а подтверждение придёт в чат от бота.</p></div>
       </section>
       <section id="history" class="hide" aria-labelledby="history-title">
-        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ ЖУРНАЛ</span><h2 id="history-title">Мои заявки</h2><p>Бот пришлёт ваши последние заявки в личный чат. После нажатия приложение закроется.</p></div>
-        <button id="history-refresh" class="worker-refresh" type="button">Получить заявки в чате</button>
-        <p id="history-status" class="worker-status" role="status">Данные защищены вашим Telegram ID. В чате также доступна кнопка «Мои заявки».</p>
+        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ ЖУРНАЛ</span><h2 id="history-title">Мои заявки</h2><p>Ваши сборки и решения по приёмке. Данные доступны только вам.</p></div>
+        <button id="history-refresh" class="worker-refresh" type="button">Обновить заявки</button>
+        <p id="history-status" class="worker-status" role="status">Откройте раздел, чтобы загрузить заявки.</p>
         <div id="history-list" class="worker-list"></div>
       </section>
       <section id="earnings" class="hide" aria-labelledby="earnings-title">
-        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ РАСЧЁТ</span><h2 id="earnings-title">Заработок</h2><p>Бот пришлёт начисление и остаток за текущую неделю в личный чат.</p></div>
-        <button id="earnings-refresh" class="worker-refresh" type="button">Получить расчёт в чате</button>
-        <p id="earnings-status" class="worker-status" role="status">После нажатия приложение закроется. В чате также доступна кнопка «Мой заработок».</p>
-        <div class="worker-pay-card hide">
+        <div class="section-heading"><span class="section-heading__eyebrow">ЛИЧНЫЙ РАСЧЁТ</span><h2 id="earnings-title">Заработок</h2><p>Только ваши данные из листа «Расчёт».</p></div>
+        <button id="earnings-refresh" class="worker-refresh" type="button">Обновить расчёт</button>
+        <p id="earnings-status" class="worker-status" role="status">Откройте раздел, чтобы загрузить расчёт.</p>
+        <div class="worker-pay-card">
           <p id="earnings-week" class="worker-pay-week">Текущая неделя</p>
           <div class="worker-pay-grid"><div><span>Начислено за неделю</span><strong id="earnings-earned">—</strong></div><div><span>Текущий остаток</span><strong id="earnings-balance">—</strong></div></div>
           <p id="earnings-detail" class="worker-pay-detail">Остаток включает долг на начало недели, начисление и выплаты.</p>
         </div>
       </section>
-      <section id="admin" class="hide bot-report-only" aria-labelledby="admin-title">
-        <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Пока действует вход через Google, бот отправит краткую сводку текущей недели в личный чат. Приёмку и исправления выполняйте в таблицах.</p></div>
+      <section id="admin" class="hide" aria-labelledby="admin-title">
+        <div class="section-heading"><span class="section-heading__eyebrow">ТОЛЬКО ДЛЯ РУКОВОДИТЕЛЯ</span><h2 id="admin-title">Учёт участка</h2><p>Сборка и фактические отметки за выбранную неделю. Данные читаются из таблиц при обновлении.</p></div>
         <h3 class="admin-group">Выбранная неделя</h3>
-        <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Получить сводку в чате</button></div>
+        <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><div id="admin-status" role="status"></div>
         <div id="admin-checks" role="status"></div>
@@ -156,7 +156,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 21.1</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 21.2</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

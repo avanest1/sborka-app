@@ -62,9 +62,9 @@ el('date').value=today;el('date').max=today;
 el('today-label').textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',weekday:'long'}).format(new Date());
 function section(name){for(const n of ['shift','assembly','history','earnings','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
 el('tab-shift').onclick=()=>section('shift');el('tab-assembly').onclick=()=>section('assembly');
-el('tab-history').onclick=()=>{if(!workerView)return;section('history')};
-el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings')};
-el('tab-admin').onclick=()=>{if(!adminView)return;section('admin')};
+el('tab-history').onclick=()=>{if(!workerView)return;section('history');loadWorker()};
+el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings');loadWorker()};
+el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
 function option(select,value){const item=document.createElement('option');item.value=value;item.textContent=value;select.append(item)}
 products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('period'),n));
 for(const [i,name] of parts.entries()){const row=document.createElement('div');row.className='part';const label=document.createElement('label');label.htmlFor='part-'+i;label.textContent=name;const input=document.createElement('input');input.id='part-'+i;input.type='number';input.min='0';input.max='1000';input.step='1';input.value='0';input.inputMode='numeric';row.append(label,input);el('parts').append(row)}
@@ -91,8 +91,10 @@ el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportVa
 
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
 // the owner's keyboard button. Mutations always use Telegram sendData above.
-const adminEndpoint=new URLSearchParams(location.search).get('api')||
-  'https://script.google.com/macros/s/AKfycbzvUbRCsLgOFjh6HiPFzcIxIH9_ZXpJ35kWdxNLtnevF2d7NwO5gG5mqsAWUlXxL48i/exec';
+// Pin the read endpoint so an older keyboard URL cannot send a valid session
+// back to the superseded Google-login deployment.
+const adminEndpoint=
+  'https://script.google.com/macros/s/AKfycbz2ZOC_Pibu90pl6edNIMf0krFJKy_3HPj7MreiDk39psF5gsUtQoW4FCSWEUa3VSBz/exec';
 const adminReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminRead')||'';
 const startWeek=()=>{
   const d=new Date(today+'T12:00:00Z');
@@ -235,10 +237,8 @@ async function loadWorker(force=false){
     el('earnings-status').textContent=error.message;
   }finally{workerLoading=false}
 }
-// This deployment requires Google sign-in. A Telegram WebView cannot use the
-// restricted Apps Script JSONP endpoint, so read reports come through the bot.
-el('history-refresh').onclick=()=>send({version:1,type:'workerOrders'});
-el('earnings-refresh').onclick=()=>send({version:1,type:'workerPay'});
+el('history-refresh').onclick=()=>loadWorker(true);
+el('earnings-refresh').onclick=()=>loadWorker(true);
 function adminNormalizeWeek(){
   const date=el('admin-week').value;
   const d=new Date(date+'T12:00:00Z');
@@ -320,8 +320,8 @@ async function loadAdmin(){
       el('admin-assembly-list').replaceChildren();el('admin-attendance-list').replaceChildren();el('admin-checks').replaceChildren()}
   }}
 }
-el('admin-refresh').onclick=()=>send({version:1,type:'adminAccounting'});
-el('admin-week').onchange=()=>{};
+el('admin-refresh').onclick=loadAdmin;
+el('admin-week').onchange=loadAdmin;
 function adminCard(root,title,details,edit){
   const box=node('div',null,'admin-card');
   box.append(node('strong',title),node('small',details));
