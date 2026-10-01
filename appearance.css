@@ -98,7 +98,9 @@ body {
 .day-strip { border-radius: 18px; padding: 13px 15px; }
 .day-strip__icon,.day-strip__zone { background: var(--accent-soft); color: var(--accent-strong); }
 .day-strip small,.section-heading p,.action-card__body p,.form-footnote,footer { color: var(--muted); }
-.tabs { position: sticky; top: 8px; z-index: 5; margin: 20px 0 24px; border: 1px solid var(--line); background: var(--surface-soft); box-shadow: 0 8px 24px #00000012; }
+.tabs { position: relative; margin: 20px 0 24px; border: 1px solid var(--line); background: var(--surface-soft); box-shadow: 0 8px 24px #00000012; }
+.tabs.admin-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.tabs .tab { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 .tab { min-height: 48px; color: var(--muted); }
 .tab.active { background: var(--surface); color: var(--accent-strong); box-shadow: 0 2px 8px #00000013; }
 .section-heading { margin: 0 2px 18px; }
@@ -189,6 +191,10 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 #earnings-month,#finance-month,#finance-employee { margin: 8px 0 16px; }
 #earnings-weeks,#finance-list { margin-top: 16px; }
 #finance .worker-pay-card { margin: 16px 0; }
+#finance .worker-pay-card > h3 { margin: 0 0 18px; }
+#finance .worker-pay-card > small { display: block; margin-top: 8px; color: var(--muted); line-height: 1.4; }
+#finance .worker-pay-card > .worker-card { margin-top: 16px; }
+#finance .worker-card > strong:first-child,#earnings-weeks .worker-card > strong:first-child { margin-bottom: 12px; line-height: 1.4; }
 #finance-status { color: var(--muted); line-height: 1.5; }
 .worker-pay-detail { margin: 16px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .day-metrics { margin-top: 18px; }
@@ -197,8 +203,8 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 .pay-breakdown-card { margin-top: 14px; }
 .pay-breakdown-card h3 { margin: 0 0 14px; font-size: 1.05rem; }
 .pay-breakdown-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .85rem; }
-.pay-breakdown-row span { overflow-wrap: anywhere; }
-.pay-breakdown-row strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pay-breakdown-row span { min-width: 0; overflow-wrap: anywhere; line-height: 1.45; }
+.pay-breakdown-row strong { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: right; line-height: 1.4; font-variant-numeric: tabular-nums; }
 .pay-breakdown-row--total { font-weight: 750; border-bottom: 0; }
 .repeat-context { padding: 14px; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); color: var(--ink); overflow-wrap: anywhere; line-height: 1.45; }
 .worker-card .repeat-button { margin-left: 8px; }
@@ -206,6 +212,11 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
   #earnings .worker-pay-grid { grid-template-columns: minmax(0,1fr); }
   .pay-breakdown-row { grid-template-columns: minmax(0,1fr); gap: 5px; }
   .worker-card .repeat-button { margin-left: 0; }
+}
+@media (max-width: 430px) {
+  .pay-breakdown-row { grid-template-columns: minmax(0,1fr); gap: 5px; align-items: start; }
+  .pay-breakdown-row strong { text-align: left; }
+  #finance .worker-pay-card,#finance .worker-card { padding: 16px; }
 }
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline-color: #efb85e; }
 
