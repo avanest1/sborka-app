@@ -55,13 +55,13 @@ el('employee-name').textContent=visibleName;
 el('employee-avatar').textContent=visibleName==='Откройте через бота'?'·':Array.from(visibleName)[0].toLocaleUpperCase('ru');
 if(!employee)document.querySelector('.profile__caption').textContent=telegramFirstName?'ПРОФИЛЬ TELEGRAM':'СОТРУДНИК';
 if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classList.remove('hide');document.querySelector('.tabs').classList.add('admin-tabs');el('hero-label').textContent='Кабинет руководителя';document.querySelector('.profile__caption').textContent='РУКОВОДИТЕЛЬ';staff.forEach(n=>{option(el('admin-employee'),n);option(el('admin-filter-employee'),n)})}
-if(workerView){el('tab-history').classList.remove('hide');el('tab-earnings').classList.remove('hide')}
+if(workerView){el('tab-history').classList.remove('hide');el('tab-earnings').classList.remove('hide');el('worker-day').classList.remove('hide');el('tab-shift').textContent='◷  Мой день';el('shift-title').textContent='Мой день'}
 const day=()=>{const x=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(y=>[y.type,y.value]));return `${x.year}-${x.month}-${x.day}`};
 const today=day();
 el('date').value=today;el('date').max=today;
 el('today-label').textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',weekday:'long'}).format(new Date());
 function section(name){for(const n of ['shift','assembly','history','earnings','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
-el('tab-shift').onclick=()=>section('shift');el('tab-assembly').onclick=()=>section('assembly');
+el('tab-shift').onclick=()=>{section('shift');if(workerView)loadWorker()};el('tab-assembly').onclick=()=>section('assembly');
 el('tab-history').onclick=()=>{if(!workerView)return;section('history');loadWorker()};
 el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings');loadWorker()};
 el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
@@ -84,10 +84,40 @@ function assemblyNote(){
   if(note.length>limit){notice('Сократите комментарии: общий предел 1000 символов с учётом служебной подписи.');return null}
   return note;
 }
-function send(payload){if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram (T1, версия 12). Откройте приложение заново через кнопку «Личный кабинет» в чате с ботом.');return}if(tg.platform==='unknown'){notice('Страница открыта вне приложения Telegram (T2, версия 12). Откройте её через кнопку «Личный кабинет» в чате с ботом.');return}if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}if(adminView&&!['photoHelp','adminAccounting','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){const target=el('admin-employee').value;if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}payload.employee=target}const raw=JSON.stringify(payload);if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}tg.sendData(raw)}
+let mutationPending=false,repeatSource=null;
+function send(payload){
+  if(mutationPending){notice('Запрос уже передан боту. Дождитесь подтверждения в чате.');return}
+  if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
+  if(tg.platform==='unknown'){notice('Откройте приложение через кнопку «Личный кабинет» в чате с ботом.');return}
+  if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}
+  if(adminView&&!['photoHelp','adminAccounting','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){
+    const target=el('admin-employee').value;
+    if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}
+    payload.employee=target;
+  }
+  const raw=JSON.stringify(payload);
+  if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}
+  mutationPending=true;
+  try{tg.sendData(raw)}catch(_){mutationPending=false;notice('Не удалось отправить запрос. Данные формы сохранены — попробуйте снова.');return}
+  notice('Запрос передан боту. Запись считается сохранённой только после подтверждения в чате.');
+}
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
-el('assembly-form').onsubmit=e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const product=el('product').value,table=product==='Стол';const qty=Number(el('qty').value);const tableParts=parts.map((_,i)=>Number(el('part-'+i).value));if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}const note=assemblyNote();if(note===null)return;send({version:1,type:'assembly',date:el('date').value,kind:el('work-kind').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note})};
+el('assembly-form').onsubmit=e=>{
+  e.preventDefault();if(mutationPending)return;
+  if(!e.currentTarget.reportValidity())return;
+  const product=el('product').value,table=product==='Стол';
+  const qty=Number(el('qty').value),tableParts=parts.map((_,i)=>Number(el('part-'+i).value));
+  if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}
+  if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}
+  const note=assemblyNote();if(note===null)return;
+  const payload={version:1,type:'assembly',date:el('date').value,kind:el('work-kind').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note};
+  if(repeatSource){
+    const composition=table?'\nСостав: '+parts.map((name,i)=>tableParts[i]>0?name+' × '+tableParts[i]:'').filter(Boolean).join(', '):'';
+    if(!window.confirm('Создать НОВУЮ заявку по образцу '+repeatSource+'?\n'+payload.kind+' · '+product+' × '+payload.qty+'\nЗаказ № '+payload.order+' · '+payload.date+'\n'+payload.period+composition+'\n\nЭто не исправление старой заявки. Убедитесь, что это новая выполненная работа.'))return;
+  }
+  send(payload);
+};
 
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
 // the owner's keyboard button. Mutations always use Telegram sendData above.
@@ -179,7 +209,7 @@ async function adminRequestData(week,extra={},onRetry,worker=false){
     catch(error){if(!error.retryable||attempt===1)throw error;onRetry?.()}
   }
 }
-let workerData=null,workerLoading=false,workerFetchedAt=0;
+let workerData=null,workerLoading=false,workerFetchedAt=0,workerDataFresh=false;
 const rubles=value=>new Intl.NumberFormat('ru-RU',{
   style:'currency',currency:'RUB',maximumFractionDigits:2}).format(value);
 const shortDate=value=>String(value||'').split('-').reverse().join('.');
@@ -203,6 +233,7 @@ function renderWorker(){
       node('span',r.status,'worker-badge'));
     if(r.needsReview)card.append(node('p','Статусы журналов расходятся — уточните у руководителя.','admin-warning'));
     if(r.photo)addPhotoButton(card,r,true);
+    addRepeatButton(card,r);
     list.append(card);
   }
   el('earnings-week').textContent='Неделя '+shortDate(data.week)+' — '+shortDate(data.weekEnd);
@@ -215,30 +246,114 @@ function renderWorker(){
     (pay.message||'Расчёт пока недоступен.');
   el('earnings-status').textContent='Обновлено '+updated+'.'+
     (pay.ready?' Суммы могут измениться до закрытия недели.':' Расчёт не подтверждён.');
+  renderWorkerDay(data,updated);
+  renderPayBreakdown(pay);
+}
+function renderWorkerDay(data,updated){
+  const d=data.day||{},state=d.state;
+  const labels={none:'Смена ещё не начата',open:'Вы на работе',closed:'Смена завершена',review:'Нужна проверка отметок',unavailable:'Отметки не загружены'};
+  el('day-shift-label').textContent=labels[state]||'Обновление сводки ещё не подключено';
+  const time=value=>value?shortDate(value.slice(0,10))+' '+value.slice(11,16)+' МСК':'';
+  const details=[];
+  if(d.arrival)details.push('Приход: '+time(d.arrival));
+  if(d.leave)details.push('Уход: '+time(d.leave));
+  if(d.hours!=null)details.push('На работе: '+Number(d.hours).toFixed(2)+' ч');
+  if(d.message)details.push(d.message);
+  el('day-shift-detail').textContent=details.join(' · ')||'Нажмите «Обновить мой день». Отметки всегда подтверждает бот.';
+  el('day-status').textContent='Обновлено '+updated+'.'+(d.date&&d.date!==day()?' Сводка за '+shortDate(d.date)+', обновите её.':'');
+  el('day-total').textContent=d.todayCount??'—';
+  el('day-pending').textContent=d.pending??'—';el('day-rework').textContent=d.rework??'—';
+  el('day-earned').textContent=data.payroll?.ready?rubles(data.payroll.earned):'—';
+  const known=workerDataFresh&&d.date===day();
+  el('arrive').disabled=known&&['open','closed','review'].includes(state);
+  el('leave').disabled=known&&['none','closed','review'].includes(state);
+  const list=el('day-list');list.replaceChildren();
+  for(const r of d.entries||[]){
+    const card=node('article',null,'worker-card');
+    card.append(node('strong',workTitle(r)),node('small','Заказ № '+r.order),node('span',r.status,'worker-badge'));
+    addRepeatButton(card,r);list.append(card);
+  }
+  if(!d.entries?.length)list.append(node('p',data.day?'За сегодня заявок пока нет.':'Сводка появится после обновления сервера.','worker-empty'));
+}
+function renderPayBreakdown(pay){
+  const root=el('earnings-breakdown');root.replaceChildren();
+  const detail=pay.breakdown;
+  if(!pay.ready||!detail?.ready){el('earnings-breakdown-note').textContent=detail?.message||pay.message||'Подробный расчёт появится после обновления сервера.';return}
+  const row=(label,amount,total=false)=>{
+    const item=node('div',null,'pay-breakdown-row'+(total?' pay-breakdown-row--total':''));
+    item.append(node('span',label),node('strong',rubles(amount)));root.append(item);
+  };
+  for(const component of detail.components||[])row(component.label,component.amount);
+  row('Начислено за неделю',pay.earned,true);
+  row('Остаток на начало недели',pay.opening);row('Выплачено',pay.paid);
+  row('Текущий остаток',pay.balance,true);
+  el('earnings-breakdown-note').textContent=[detail.days!=null?'Засчитано дней: '+detail.days+'.':'',
+    detail.overtimeHours!=null?'Переработка: '+Number(detail.overtimeHours).toFixed(2)+' ч.':'',
+    detail.message||'', 'Сборка учитывается после приёмки. Остаток = на начало + начислено − выплачено.'].filter(Boolean).join(' ');
+}
+function canRepeatRecord(r){
+  return workerView&&r.canRepeat===true&&!r.needsReview&&products.includes(r.product)&&
+    ['Сборка','Переделка'].includes(r.kind)&&periods.includes(r.period)&&
+    typeof r.order==='string'&&r.order.trim().length>0&&r.order.length<=80&&
+    (r.product==='Стол'?r.qty===1&&Array.isArray(r.parts)&&r.parts.length===parts.length&&
+      r.parts.every(v=>Number.isInteger(v)&&v>=0&&v<=1000)&&r.parts.some(v=>v>0):
+      Number.isInteger(r.qty)&&r.qty>0&&r.qty<=100000);
+}
+function addRepeatButton(card,r){
+  if(!canRepeatRecord(r))return;
+  const button=node('button','Повторить','repeat-button');button.type='button';
+  button.disabled=!workerDataFresh;button.onclick=()=>repeatAssembly(r);card.append(button);
+}
+function repeatAssembly(r){
+  if(!workerDataFresh||!canRepeatRecord(r)){notice('Сначала обновите ваши заявки.');return}
+  const dirty=repeatSource||el('order').value.trim()||['note','problem','responsible'].some(id=>el(id).value.trim())||
+    el('date').value!==day()||
+    Boolean(el('product').value)||Number(el('qty').value)!==1||
+    el('work-kind').value!=='Сборка'||el('period').value!==periods[0]||
+    parts.some((_,i)=>Number(el('part-'+i).value)>0);
+  if(dirty&&!window.confirm('Заменить введённые данные формы новой заявкой по этому образцу?'))return;
+  repeatSource=r.key;
+  el('date').value=day();el('date').max=day();
+  el('product').value=r.product;el('qty').value=String(r.qty);
+  el('work-kind').value=r.kind;el('period').value=r.period;el('order').value=r.order;
+  parts.forEach((_,i)=>{el('part-'+i).value=String(r.product==='Стол'?r.parts[i]:0)});
+  for(const id of ['note','problem','responsible'])el(id).value='';
+  el('product').onchange();section('assembly');
+  el('repeat-context').textContent='Новая заявка по образцу '+r.key+'. Проверьте дату, количество и номер заказа. Старые фото и надбавки не перенесены.';
+  el('repeat-context').classList.remove('hide');
+  el('assembly-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function loadWorker(force=false){
   if(!workerView||workerLoading||(!force&&workerData&&Date.now()-workerFetchedAt<120000))return;
   workerLoading=true;
+  workerDataFresh=false;
+  if(workerData)renderWorker();
+  el('day-status').textContent='Загружаю ваш день…';
   el('history-status').textContent='Загружаю ваши заявки…';
   el('earnings-status').textContent='Загружаю ваш расчёт…';
   try{
     const data=await adminRequestData('',{view:'mine'},()=>{
       el('history-status').textContent='Ответ не пришёл. Повторяю загрузку…';
       el('earnings-status').textContent='Ответ не пришёл. Повторяю загрузку…';
+      el('day-status').textContent='Ответ не пришёл. Повторяю загрузку…';
     },true);
-    if(!staff.includes(data?.name)||!Array.isArray(data?.entries))throw new Error('Ответ сервера неполный. Повторите загрузку.');
-    workerData=data;workerFetchedAt=Date.now();renderWorker();
+    if(data?.name!==employee||!staff.includes(data?.name)||!Array.isArray(data?.entries))throw new Error('Ответ сервера неполный. Повторите загрузку.');
+    workerData=data;workerDataFresh=true;workerFetchedAt=Date.now();renderWorker();
   }catch(error){
-    workerData=null;workerFetchedAt=0;
-    el('history-list').replaceChildren();
-    el('earnings-earned').textContent='—';el('earnings-balance').textContent='—';
-    el('earnings-detail').textContent='Данные не загружены.';
-    el('history-status').textContent=error.message;
-    el('earnings-status').textContent=error.message;
+    workerFetchedAt=0;
+    if(!workerData){
+      el('history-list').replaceChildren();el('day-list').replaceChildren();
+      el('earnings-earned').textContent='—';el('earnings-balance').textContent='—';
+      el('earnings-detail').textContent='Данные не загружены.';
+    }
+    const message=error.message+(workerData?' Показаны предыдущие данные; повторение заявок отключено до обновления.':'');
+    el('history-status').textContent=message;el('earnings-status').textContent=message;el('day-status').textContent=message;
   }finally{workerLoading=false}
 }
 el('history-refresh').onclick=()=>loadWorker(true);
 el('earnings-refresh').onclick=()=>loadWorker(true);
+el('day-refresh').onclick=()=>loadWorker(true);
+el('day-all-history').onclick=()=>{section('history');loadWorker()};
 function adminNormalizeWeek(){
   const date=el('admin-week').value;
   const d=new Date(date+'T12:00:00Z');
@@ -596,4 +711,5 @@ function editAttendance(r){
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
+if(workerView)loadWorker();
 })();

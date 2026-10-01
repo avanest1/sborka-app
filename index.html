@@ -90,6 +90,23 @@
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ВРЕМЕНИ</span><h2 id="shift-title">Отметить смену</h2><p>Нажмите при входе и после окончания работы.</p></div>
         <div class="action-card action-card--arrival"><div class="action-card__icon" aria-hidden="true">↗</div><div class="action-card__body"><h3>Пришёл на работу</h3><p>Бот зафиксирует время вашего прихода.</p></div><button class="action-button action-button--arrival" id="arrive" type="button">Отметить приход <span aria-hidden="true">→</span></button></div>
         <div class="action-card action-card--leave"><div class="action-card__icon" aria-hidden="true">↘</div><div class="action-card__body"><h3>Закончил работу</h3><p>Бот запишет уход и рассчитает переработку.</p></div><button class="action-button action-button--leave" id="leave" type="button">Отметить уход <span aria-hidden="true">→</span></button></div>
+        <div id="worker-day" class="hide">
+          <button id="day-refresh" class="worker-refresh" type="button">Обновить мой день</button>
+          <p id="day-status" class="worker-status" role="status">Загружаю состояние смены…</p>
+          <div class="worker-pay-card">
+            <strong id="day-shift-label">Состояние смены неизвестно</strong>
+            <p id="day-shift-detail" class="worker-pay-detail">Отметки появятся после загрузки.</p>
+            <div class="worker-pay-grid day-metrics">
+              <div><span>Заявок за сегодня</span><strong id="day-total">—</strong></div>
+              <div><span>Ждёт приёмки · всего</span><strong id="day-pending">—</strong></div>
+              <div><span>На исправлении · всего</span><strong id="day-rework">—</strong></div>
+              <div><span>Начислено за неделю</span><strong id="day-earned">—</strong></div>
+            </div>
+          </div>
+          <h3 class="day-heading">Заявки за сегодня</h3>
+          <div id="day-list" class="worker-list"></div>
+          <button id="day-all-history" class="worker-refresh worker-secondary" type="button">Все мои заявки</button>
+        </div>
         <div class="tip"><span aria-hidden="true">ⓘ</span><p>Время берётся из сообщения Telegram. После отметки приложение закроется, а подтверждение придёт в чат от бота.</p></div>
       </section>
       <section id="history" class="hide" aria-labelledby="history-title">
@@ -106,6 +123,11 @@
           <p id="earnings-week" class="worker-pay-week">Текущая неделя</p>
           <div class="worker-pay-grid"><div><span>Начислено за неделю</span><strong id="earnings-earned">—</strong></div><div><span>Текущий остаток</span><strong id="earnings-balance">—</strong></div></div>
           <p id="earnings-detail" class="worker-pay-detail">Остаток включает долг на начало недели, начисление и выплаты.</p>
+        </div>
+        <div class="worker-pay-card pay-breakdown-card">
+          <h3>Из чего складывается заработок</h3>
+          <div id="earnings-breakdown" class="pay-breakdown"></div>
+          <p id="earnings-breakdown-note" class="worker-pay-detail">Расшифровка появится после загрузки.</p>
         </div>
       </section>
       <section id="admin" class="hide" aria-labelledby="admin-title">
@@ -137,6 +159,7 @@
       <section id="assembly" class="hide" aria-labelledby="assembly-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ИЗДЕЛИЙ</span><h2 id="assembly-title">Сдать сборку</h2><p>Одна заявка — один вид изделия по одному заказу.</p></div>
         <form id="assembly-form">
+          <p id="repeat-context" class="hide repeat-context" role="status"></p>
           <div class="form-card"><div class="form-card__heading"><span class="form-card__index">01</span><h3>Что собрали</h3></div>
             <label class="field" for="date">Дата сборки</label><input required type="date" id="date" min="2026-09-14">
             <label class="field" for="work-kind">Тип работы</label><select id="work-kind" required><option value="Сборка">Сборка</option><option value="Переделка">Переделка · 50% расценки</option></select>
@@ -156,7 +179,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 22</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 23</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

@@ -186,6 +186,21 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 .worker-pay-grid span { display: block; color: var(--accent-strong); font-size: .75rem; font-weight: 700; line-height: 1.35; }
 .worker-pay-grid strong { display: block; margin-top: 8px; color: var(--ink); font-size: clamp(1.22rem,4vw,1.8rem); overflow-wrap: anywhere; }
 .worker-pay-detail { margin: 16px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.day-metrics { margin-top: 18px; }
+.day-heading { margin: 24px 0 12px; }
+.worker-secondary { margin: 12px 0 22px; background: var(--surface-soft); color: var(--ink); border: 1px solid var(--line); }
+.pay-breakdown-card { margin-top: 14px; }
+.pay-breakdown-card h3 { margin: 0 0 14px; font-size: 1.05rem; }
+.pay-breakdown-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.pay-breakdown-row span { overflow-wrap: anywhere; }
+.pay-breakdown-row strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pay-breakdown-row--total { font-weight: 750; border-bottom: 0; }
+.repeat-context { padding: 14px; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); color: var(--ink); overflow-wrap: anywhere; line-height: 1.45; }
+.worker-card .repeat-button { margin-left: 8px; }
+@media (max-width: 350px) {
+  .pay-breakdown-row { grid-template-columns: minmax(0,1fr); gap: 5px; }
+  .worker-card .repeat-button { margin-left: 0; }
+}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline-color: #efb85e; }
 
 .settings-overlay {
