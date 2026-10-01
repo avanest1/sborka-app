@@ -84,6 +84,7 @@
         <button id="tab-assembly" class="tab" type="button" aria-controls="assembly" aria-selected="false">▦ &nbsp; Сборка</button>
         <button id="tab-history" class="tab hide" type="button" aria-controls="history" aria-selected="false">◴ &nbsp; Заявки</button>
         <button id="tab-earnings" class="tab hide" type="button" aria-controls="earnings" aria-selected="false">₽ &nbsp; Заработок</button>
+        <button id="tab-finance" class="tab hide" type="button" aria-controls="finance" aria-selected="false">₽ &nbsp; Финансы</button>
         <button id="tab-admin" class="tab hide" type="button" aria-controls="admin" aria-selected="false">✎ &nbsp; Учёт</button>
       </nav>
       <section id="shift" aria-labelledby="shift-title">
@@ -121,9 +122,11 @@
         <p id="earnings-status" class="worker-status" role="status">Откройте раздел, чтобы загрузить расчёт.</p>
         <div class="worker-pay-card">
           <p id="earnings-week" class="worker-pay-week">Текущая неделя</p>
-          <div class="worker-pay-grid"><div><span>Начислено за неделю</span><strong id="earnings-earned">—</strong></div><div><span>Текущий остаток</span><strong id="earnings-balance">—</strong></div></div>
+          <div class="worker-pay-grid"><div><span>Начислено за неделю</span><strong id="earnings-earned">—</strong></div><div><span>Начислено за текущий месяц</span><strong id="earnings-month-earned">—</strong></div><div><span>Текущий остаток</span><strong id="earnings-balance">—</strong></div></div>
           <p id="earnings-detail" class="worker-pay-detail">Остаток включает долг на начало недели, начисление и выплаты.</p>
+          <p id="earnings-current-month-note" class="worker-pay-detail"></p>
         </div>
+        <div class="worker-pay-card"><h3>История заработка</h3><label for="earnings-month">Месяц</label><select id="earnings-month"></select><p class="worker-pay-detail">Неделя относится к месяцу по дате понедельника. Суммы текущего месяца предварительные.</p><div id="earnings-month-summary" class="pay-breakdown"></div><div id="earnings-weeks" class="worker-list"></div></div>
         <div class="worker-pay-card pay-breakdown-card">
           <h3>Из чего складывается заработок</h3>
           <div id="earnings-breakdown" class="pay-breakdown"></div>
@@ -156,13 +159,14 @@
         <div id="order-status" role="status"></div><div id="order-card" class="order-card-list"></div>
         <div id="admin-editor" class="hide form-card"></div>
       </section>
+      <section id="finance" class="hide" aria-labelledby="finance-title"><div class="section-heading"><span class="section-heading__eyebrow">КАБИНЕТ РУКОВОДИТЕЛЯ</span><h2 id="finance-title">Начисления и выплаты</h2><p>Просмотр всех сборщиков. Выплаты — недельные суммы из таблицы, не отдельные переводы.</p></div><button id="finance-refresh" type="button" class="worker-refresh">Обновить финансы</button><p id="finance-status" role="status"></p><div class="worker-pay-card"><label for="finance-month">Месяц</label><select id="finance-month"></select><label for="finance-employee">Сотрудник</label><select id="finance-employee"><option value="">Все сборщики</option></select><p class="worker-pay-detail">Неделя относится к месяцу по дате понедельника. Остаток показывается на конец последней недели, а не складывается.</p><div id="finance-summary" class="pay-breakdown"></div></div><div id="finance-list" class="worker-list"></div></section>
       <section id="assembly" class="hide" aria-labelledby="assembly-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ИЗДЕЛИЙ</span><h2 id="assembly-title">Сдать сборку</h2><p>Одна заявка — один вид изделия по одному заказу.</p></div>
         <form id="assembly-form">
           <p id="repeat-context" class="hide repeat-context" role="status"></p>
           <div class="form-card"><div class="form-card__heading"><span class="form-card__index">01</span><h3>Что собрали</h3></div>
             <label class="field" for="date">Дата сборки</label><input required type="date" id="date" min="2026-09-14">
-            <label class="field" for="work-kind">Тип работы</label><select id="work-kind" required><option value="Сборка">Сборка</option><option value="Переделка">Переделка · 50% расценки</option></select>
+            <label class="field" for="work-kind">Тип работы</label><select id="work-kind" required><option value="Сборка">Сборка</option><option value="Переделка">Переделка · 50% расценки</option><option value="Загрузка машины">Загрузка машины · 700 ₽ каждому</option></select><p id="loading-hint" class="hide form-hint">Одна загрузка — одна заявка от каждого участника. Оплата 700 ₽ после приёмки. Изделие и фото не требуются, заказ можно не указывать.</p>
             <label class="field" for="product">Изделие</label><select id="product" required><option value="">Выберите изделие</option></select>
             <div id="ordinary"><label class="field" for="qty">Количество, шт.</label><input id="qty" type="number" inputmode="numeric" min="1" max="100000" step="1" value="1" required></div>
             <div id="table-parts" class="hide"><p class="form-hint">Один стол. Укажите нужные элементы и количество каждого.</p><div id="parts"></div></div>
@@ -175,11 +179,11 @@
             <label class="field" for="responsible">Кого считаете ответственным <span class="optional">необязательно</span></label><input id="responsible" maxlength="100" placeholder="Ваше мнение, потребуется проверка"><p class="form-hint">Укажите наблюдения. Предположение об ответственном не считается подтверждённым фактом.</p>
           </div>
           <button class="submit" type="submit">Отправить на приёмку <span aria-hidden="true">→</span></button>
-          <p class="form-footnote">Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия обычным сообщением в этот же чат: оно привяжется к последней сданной заявке.</p>
+          <p id="assembly-photo-hint" class="form-footnote">Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия обычным сообщением в этот же чат: оно привяжется к последней сданной заявке.</p>
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 23</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 24</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

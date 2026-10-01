@@ -185,6 +185,11 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 .worker-pay-grid>div { min-width: 0; padding: 13px; border-radius: 15px; background: var(--accent-soft); }
 .worker-pay-grid span { display: block; color: var(--accent-strong); font-size: .75rem; font-weight: 700; line-height: 1.35; }
 .worker-pay-grid strong { display: block; margin-top: 8px; color: var(--ink); font-size: clamp(1.22rem,4vw,1.8rem); overflow-wrap: anywhere; }
+#earnings .worker-pay-grid>div:last-child { grid-column: 1 / -1; }
+#earnings-month,#finance-month,#finance-employee { margin: 8px 0 16px; }
+#earnings-weeks,#finance-list { margin-top: 16px; }
+#finance .worker-pay-card { margin: 16px 0; }
+#finance-status { color: var(--muted); line-height: 1.5; }
 .worker-pay-detail { margin: 16px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .day-metrics { margin-top: 18px; }
 .day-heading { margin: 24px 0 12px; }
@@ -198,6 +203,7 @@ input[type="checkbox"],input[type="radio"] { accent-color: var(--accent); }
 .repeat-context { padding: 14px; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--accent-soft); color: var(--ink); overflow-wrap: anywhere; line-height: 1.45; }
 .worker-card .repeat-button { margin-left: 8px; }
 @media (max-width: 350px) {
+  #earnings .worker-pay-grid { grid-template-columns: minmax(0,1fr); }
   .pay-breakdown-row { grid-template-columns: minmax(0,1fr); gap: 5px; }
   .worker-card .repeat-button { margin-left: 0; }
 }

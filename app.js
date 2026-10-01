@@ -58,13 +58,15 @@ if(adminView){el('admin-picker').classList.remove('hide');el('tab-admin').classL
 if(workerView){el('tab-history').classList.remove('hide');el('tab-earnings').classList.remove('hide');el('worker-day').classList.remove('hide');el('tab-shift').textContent='◷  Мой день';el('shift-title').textContent='Мой день'}
 const day=()=>{const x=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(y=>[y.type,y.value]));return `${x.year}-${x.month}-${x.day}`};
 const today=day();
+if(adminView){el('tab-finance').classList.remove('hide');staff.forEach(n=>option(el('finance-employee'),n))}
 el('date').value=today;el('date').max=today;
 el('today-label').textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',weekday:'long'}).format(new Date());
-function section(name){for(const n of ['shift','assembly','history','earnings','admin']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
+function section(name){for(const n of ['shift','assembly','history','earnings','admin','finance']){el(n).classList.toggle('hide',n!==name);el('tab-'+n).classList.toggle('active',n===name);el('tab-'+n).setAttribute('aria-selected',String(n===name))}el('message').classList.add('hide')}
 el('tab-shift').onclick=()=>{section('shift');if(workerView)loadWorker()};el('tab-assembly').onclick=()=>section('assembly');
 el('tab-history').onclick=()=>{if(!workerView)return;section('history');loadWorker()};
 el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings');loadWorker()};
 el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
+el('tab-finance').onclick=()=>{if(!adminView)return;section('finance');loadFinance()};
 function option(select,value){const item=document.createElement('option');item.value=value;item.textContent=value;select.append(item)}
 products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('period'),n));
 for(const [i,name] of parts.entries()){const row=document.createElement('div');row.className='part';const label=document.createElement('label');label.htmlFor='part-'+i;label.textContent=name;const input=document.createElement('input');input.id='part-'+i;input.type='number';input.min='0';input.max='1000';input.step='1';input.value='0';input.inputMode='numeric';row.append(label,input);el('parts').append(row)}
@@ -85,6 +87,17 @@ function assemblyNote(){
   return note;
 }
 let mutationPending=false,repeatSource=null;
+function loadingForm(){
+  const loading=el('work-kind').value==='Загрузка машины',table=!loading&&el('product').value==='Стол';
+  for(const id of ['product','qty','period']){el(id).disabled=loading;el(id).classList.toggle('hide',loading)}
+  for(const id of ['product','period'])document.querySelector('label[for="'+id+'"]').classList.toggle('hide',loading);
+  el('ordinary').classList.toggle('hide',loading||table);el('table-parts').classList.toggle('hide',!table);
+  el('product').required=!loading;el('qty').required=!loading&&!table;
+  el('order').required=!loading;el('loading-hint').classList.toggle('hide',!loading);
+  document.querySelector('label[for="order"]').textContent=loading?'№ заказа (необязательно)':'№ заказа';
+  el('assembly-photo-hint').textContent=loading?'700 ₽ каждому участнику после приёмки. Фото необязательно.':'Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия в этот чат.';
+}
+el('work-kind').onchange=loadingForm;el('product').onchange=loadingForm;
 function send(payload){
   if(mutationPending){notice('Запрос уже передан боту. Дождитесь подтверждения в чате.');return}
   if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
@@ -106,12 +119,13 @@ el('leave').onclick=()=>send({version:1,type:'leave'});
 el('assembly-form').onsubmit=e=>{
   e.preventDefault();if(mutationPending)return;
   if(!e.currentTarget.reportValidity())return;
-  const product=el('product').value,table=product==='Стол';
+  const loading=el('work-kind').value==='Загрузка машины';
+  const product=loading?'Загрузка машины':el('product').value,table=product==='Стол';
   const qty=Number(el('qty').value),tableParts=parts.map((_,i)=>Number(el('part-'+i).value));
   if(table&&(!tableParts.some(x=>x>0)||tableParts.some(x=>!Number.isInteger(x)||x<0||x>1000))){notice('Укажите хотя бы один элемент стола и проверьте количество.');return}
-  if(!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}
+  if(!loading&&!table&&(!Number.isInteger(qty)||qty<1||qty>100000)){notice('Количество изделий должно быть от 1 до 100000.');return}
   const note=assemblyNote();if(note===null)return;
-  const payload={version:1,type:'assembly',date:el('date').value,kind:el('work-kind').value,product,qty:table?1:qty,parts:table?tableParts:[],period:el('period').value,order:el('order').value.trim(),note};
+  const payload={version:1,type:'assembly',date:el('date').value,kind:el('work-kind').value,product,qty:loading||table?1:qty,parts:table?tableParts:[],period:loading?periods[0]:el('period').value,order:el('order').value.trim(),note};
   if(repeatSource){
     const composition=table?'\nСостав: '+parts.map((name,i)=>tableParts[i]>0?name+' × '+tableParts[i]:'').filter(Boolean).join(', '):'';
     if(!window.confirm('Создать НОВУЮ заявку по образцу '+repeatSource+'?\n'+payload.kind+' · '+product+' × '+payload.qty+'\nЗаказ № '+payload.order+' · '+payload.date+'\n'+payload.period+composition+'\n\nЭто не исправление старой заявки. Убедитесь, что это новая выполненная работа.'))return;
@@ -213,7 +227,7 @@ let workerData=null,workerLoading=false,workerFetchedAt=0,workerDataFresh=false;
 const rubles=value=>new Intl.NumberFormat('ru-RU',{
   style:'currency',currency:'RUB',maximumFractionDigits:2}).format(value);
 const shortDate=value=>String(value||'').split('-').reverse().join('.');
-const workTitle=r=>(r.kind==='Переделка'?'Переделка · ':'')+r.product+' × '+r.qty;
+const workTitle=r=>r.kind==='Загрузка машины'?'Загрузка машины · 700 ₽':(r.kind==='Переделка'?'Переделка · ':'')+r.product+' × '+r.qty;
 function renderWorker(){
   if(!workerData)return;
   const data=workerData;
@@ -248,6 +262,7 @@ function renderWorker(){
     (pay.ready?' Суммы могут измениться до закрытия недели.':' Расчёт не подтверждён.');
   renderWorkerDay(data,updated);
   renderPayBreakdown(pay);
+  renderWorkerMonths();
 }
 function renderWorkerDay(data,updated){
   const d=data.day||{},state=d.state;
@@ -291,7 +306,70 @@ function renderPayBreakdown(pay){
     detail.overtimeHours!=null?'Переработка: '+Number(detail.overtimeHours).toFixed(2)+' ч.':'',
     detail.message||'', 'Сборка учитывается после приёмки. Остаток = на начало + начислено − выплачено.'].filter(Boolean).join(' ');
 }
+const monthLabel=value=>new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(value+'-01T12:00:00Z'));
+function monthOptions(select,months){
+  const previous=select.value;select.replaceChildren();
+  for(const month of months){const item=node('option',monthLabel(month));item.value=month;select.append(item)}
+  select.value=months.includes(previous)?previous:(months.includes(day().slice(0,7))?day().slice(0,7):months[0]||'');
+}
+function financialRow(root,label,amount){const row=node('div',null,'pay-breakdown-row');row.append(node('span',label),node('strong',Number.isFinite(amount)?rubles(amount):'—'));root.append(row)}
+function weeklyFinancialCard(r){
+  const card=node('article',null,'worker-card');card.append(node('strong',shortDate(r.week)+' — '+shortDate(r.weekEnd)));
+  if(!r.ready){card.append(node('p',r.message||'Расчёт требует проверки.','admin-warning'));return card}
+  for(const [key,label] of [['opening','На начало недели'],['earned','Начислено'],['paid','Выплачено за неделю'],['balance','Остаток на конец недели']])financialRow(card,label,r[key]);
+  return card;
+}
+function renderWorkerMonths(){
+  const f=workerData?.finances;
+  const current=f?.months?.find(m=>m.month===day().slice(0,7));
+  el('earnings-month-earned').textContent=current?.ready?rubles(current.earned):'—';
+  el('earnings-current-month-note').textContent=current?.message||'';
+  const summary=el('earnings-month-summary'),list=el('earnings-weeks');summary.replaceChildren();list.replaceChildren();
+  if(!f||f.name!==employee||!Array.isArray(f.months)||!Array.isArray(f.weeks)){summary.append(node('p','Месячная история появится после обновления сервера.'));return}
+  monthOptions(el('earnings-month'),f.months.map(m=>m.month));
+  const selected=f.months.find(m=>m.month===el('earnings-month').value);
+  financialRow(summary,'Начислено за выбранный месяц',selected?.ready?selected.earned:null);
+  financialRow(summary,'Выплачено по неделям месяца',selected?.ready?selected.paid:null);
+  if(selected?.message)summary.append(node('p',selected.message,'worker-pay-detail'));
+  for(const r of f.weeks.filter(r=>r.month===selected?.month))list.append(weeklyFinancialCard(r));
+}
+el('earnings-month').onchange=renderWorkerMonths;
+let financeData=null,financeLoading=false,financeFetchedAt=0;
+function renderFinance(){
+  const employees=financeData?.employees||[];
+  monthOptions(el('finance-month'),Array.from(new Set(employees.flatMap(e=>e.months.map(m=>m.month)))).sort().reverse());
+  const selected=el('finance-month').value,name=el('finance-employee').value;
+  const visible=employees.filter(e=>!name||e.name===name),summary=el('finance-summary'),list=el('finance-list');summary.replaceChildren();list.replaceChildren();
+  const monthly=visible.map(e=>e.months.find(m=>m.month===selected));
+  const ready=monthly.length>0&&monthly.every(m=>m?.ready);
+  financialRow(summary,'Начислено за месяц',ready?monthly.reduce((s,m)=>s+m.earned,0):null);
+  financialRow(summary,'Выплачено по неделям месяца',ready?monthly.reduce((s,m)=>s+m.paid,0):null);
+  if(!ready)summary.append(node('p','Нет расчётов за этот месяц либо есть неподтверждённые недели.','worker-pay-detail'));
+  for(const e of visible){
+    const card=node('article',null,'worker-pay-card');card.append(node('h3',e.name));
+    const latest=e.weeks[0];financialRow(card,'Остаток на конец последней недели',latest?.ready?latest.balance:null);
+    if(latest)card.append(node('small','Неделя с '+shortDate(latest.week)));
+    const weeks=e.weeks.filter(r=>r.month===selected);
+    for(const r of weeks)card.append(weeklyFinancialCard(r));
+    if(!weeks.length)card.append(node('p','Нет недельных расчётов за выбранный месяц.'));
+    list.append(card);
+  }
+}
+async function loadFinance(force=false){
+  if(!adminView||financeLoading||(!force&&financeData&&Date.now()-financeFetchedAt<120000))return;
+  financeLoading=true;el('finance-status').textContent='Загружаю начисления и выплаты…';
+  try{
+    const data=await adminRequestData('',{view:'finance'});
+    if(data?.apiVersion<24||!Array.isArray(data?.employees)||data.employees.length!==staff.length||
+      new Set(data.employees.map(e=>e.name)).size!==staff.length||data.employees.some(e=>!staff.includes(e.name)||!Array.isArray(e.weeks)||!Array.isArray(e.months)))throw new Error('Ответ финансового раздела неполный.');
+    financeData=data;financeFetchedAt=Date.now();renderFinance();el('finance-status').textContent='Обновлено '+data.updated.slice(11,16)+' МСК. Только просмотр.';
+  }catch(error){financeFetchedAt=0;el('finance-status').textContent=error.message+(financeData?' Показаны предыдущие данные.':'')}
+  finally{financeLoading=false}
+}
+el('finance-refresh').onclick=()=>loadFinance(true);el('finance-month').onchange=renderFinance;el('finance-employee').onchange=renderFinance;
 function canRepeatRecord(r){
+  if(workerView&&r.canRepeat===true&&!r.needsReview&&r.kind==='Загрузка машины')
+    return r.product==='Загрузка машины'&&r.qty===1&&r.period===periods[0]&&typeof r.order==='string'&&r.order.length<=80;
   return workerView&&r.canRepeat===true&&!r.needsReview&&products.includes(r.product)&&
     ['Сборка','Переделка'].includes(r.kind)&&periods.includes(r.period)&&
     typeof r.order==='string'&&r.order.trim().length>0&&r.order.length<=80&&
@@ -665,34 +743,37 @@ function editAssembly(r){
   const date=field(form,'Дата сборки','date',r.date);
   date.min='2026-09-14';date.max=today;
   const name=field(form,'Сотрудник','select',r.name,staff);
-  const kind=field(form,'Тип работы','select',r.kind||'Сборка',['Сборка','Переделка']);
-  const product=field(form,'Изделие','select',r.product,products);
+  const kind=field(form,'Тип работы','select',r.kind||'Сборка',['Сборка','Переделка','Загрузка машины']);
+  const product=field(form,'Изделие','select',r.product,products.concat(['Загрузка машины']));
   const qty=field(form,'Количество изделий','number',r.qty);qty.min='1';qty.max='100000';qty.step='1';
   const table=node('div',null,'admin-fields');form.append(table);
   const partInputs=parts.map((p,i)=>{
     const input=field(table,p+', шт.','number',r.parts[i]||0);
     input.min='0';input.max='1000';input.step='1';return input;
   });
-  const toggle=()=>{const isTable=product.value==='Стол';table.classList.toggle('hide',!isTable);qty.disabled=isTable};
-  product.onchange=toggle;toggle();
   const period=field(form,'Период работы','select',r.period,periods);
   box.append(node('p','Статус приёмки меняется отдельными кнопками в карточке изделия.','admin-warning'));
   const order=field(form,'№ заказа','text',r.order);order.maxLength=80;order.required=true;
+  const toggle=()=>{
+    const loading=kind.value==='Загрузка машины',isTable=!loading&&product.value==='Стол';
+    table.classList.toggle('hide',!isTable);qty.disabled=isTable||loading;product.disabled=loading;period.disabled=loading;order.required=!loading;
+  };
+  kind.onchange=toggle;product.onchange=toggle;toggle();
   const note=field(form,'Комментарий, проблемы и просьба о надбавке','textarea',r.note);note.maxLength=1000;
   const save=node('button','Сохранить исправление','submit');save.type='submit';form.append(save);
   form.onsubmit=e=>{
-    e.preventDefault();const isTable=product.value==='Стол';
+    e.preventDefault();const loading=kind.value==='Загрузка машины',isTable=!loading&&product.value==='Стол';
     const values=partInputs.map(x=>Number(x.value));
     if(isTable&&(!values.some(n=>n>0)||values.some(n=>!Number.isInteger(n)||n<0||n>1000))){
       adminStatus('Проверьте количество элементов стола.');return;
     }
-    const count=isTable?1:Number(qty.value);
+    const count=isTable||loading?1:Number(qty.value);
     if(!isTable&&(!Number.isInteger(count)||count<1||count>100000)){
       adminStatus('Проверьте количество изделий.');return;
     }
     send({version:1,type:'adminEditAssembly',row:r.row,key:r.key,rev:r.rev,date:date.value,
-      name:name.value,kind:kind.value,product:product.value,qty:count,parts:isTable?values:[],
-      period:period.value,status:r.status,order:order.value.trim(),note:note.value.trim()});
+      name:name.value,kind:kind.value,product:loading?'Загрузка машины':product.value,qty:count,parts:isTable?values:[],
+      period:loading?periods[0]:period.value,status:r.status,order:order.value.trim(),note:note.value.trim()});
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
