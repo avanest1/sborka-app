@@ -6,3 +6,6 @@
 .keyboard-done{position:fixed;right:max(14px,env(safe-area-inset-right));z-index:10000;width:auto;min-height:44px;margin:0;padding:10px 22px;border:1px solid #d3ded8;border-radius:14px;background:#fff;color:#225d4d;font:600 17px/1.25 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 3px 18px #16382a30;touch-action:manipulation}
 .keyboard-done[hidden]{display:none!important}
 .keyboard-done:focus-visible{outline:3px solid #3a987a;outline-offset:2px}
+
+
+.bonus-request{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f8f2;border-radius:12px;padding:12px}.bonus-form{margin-top:12px}.bonus-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.bonus-actions button{flex:1 1 130px;min-width:0;white-space:normal}.bonus-decline{background:#fff2ed;color:#92432d;border-color:#eed2c7}.bonus-record h4{overflow-wrap:anywhere}

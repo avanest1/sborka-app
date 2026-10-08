@@ -140,6 +140,12 @@
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><div id="admin-status" role="status"></div>
         <div id="admin-checks" role="status"></div>
+        <div id="bonus-section" class="hide">
+          <h3 class="admin-group">Просьбы о надбавке · все недели</h3>
+          <p>Согласуйте сумму за всю заявку или отклоните просьбу. Одобренная надбавка начисляется после приёмки изделия.</p>
+          <div class="admin-tools"><label for="bonus-filter">Показывать<select id="bonus-filter"><option value="pending">На рассмотрении</option><option value="all">Все решения</option></select></label><button id="bonus-refresh" type="button">Обновить надбавки</button></div>
+          <p id="bonus-status" role="status"></p><div id="bonus-list"></div>
+        </div>
         <h3 class="admin-group">Очередь приёмки</h3>
         <div id="admin-queue-summary" class="admin-queue-summary" role="status">Загрузите неделю, чтобы увидеть очередь приёмки.</div>
         <div class="admin-queue-filters">
@@ -183,7 +189,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 24</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 25</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -216,3 +222,4 @@
   </div>
 </body>
 </html>
+

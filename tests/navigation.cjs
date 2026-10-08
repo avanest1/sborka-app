@@ -7,7 +7,7 @@ const code=source.slice(source.indexOf('function section('),source.indexOf('func
 
 function runNavigation(adminView){
   const elements=new Map();
-  for(const id of ['shift','assembly','admin','tab-shift','tab-assembly','tab-admin','message']){
+  for(const id of ['shift','assembly','history','earnings','admin','finance','tab-shift','tab-assembly','tab-history','tab-earnings','tab-admin','tab-finance','message']){
     const classes=new Set(id==='shift'||id==='tab-shift'?['active']:['hide']);
     if(adminView&&id==='tab-admin')classes.delete('hide');
     elements.set(id,{
@@ -21,7 +21,7 @@ function runNavigation(adminView){
   }
   let loads=0;
   vm.runInNewContext(code,{
-    el:id=>elements.get(id),adminView,loadAdmin:()=>loads++,String,
+    el:id=>elements.get(id),adminView,workerView:!adminView,loadWorker(){},loadFinance(){},loadAdmin:()=>loads++,String,
   });
   return {elements,loads:()=>loads};
 }
@@ -42,3 +42,4 @@ const worker=runNavigation(false);
 worker.elements.get('tab-admin').onclick();
 assert.equal(worker.loads(),0,'Worker cannot load the owner queue');
 assert.equal(worker.elements.get('admin').classes.has('hide'),true);
+

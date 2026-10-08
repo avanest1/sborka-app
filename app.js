@@ -103,7 +103,8 @@ function send(payload){
   if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
   if(tg.platform==='unknown'){notice('Откройте приложение через кнопку «Личный кабинет» в чате с ботом.');return}
   if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}
-  if(adminView&&!['photoHelp','adminAccounting','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){
+  if(payload.type==='adminBonusDecision'&&!bonusDataFresh){el('bonus-status').textContent='Список надбавок устарел. Сначала обновите его.';return}
+  if(adminView&&!['photoHelp','adminAccounting','adminBonusDecision','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){
     const target=el('admin-employee').value;
     if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}
     payload.employee=target;
@@ -505,6 +506,8 @@ async function loadAdmin(){
     if(generation!==adminRequest)return;
     adminData=data;adminLoadedWeek=week;adminDataFresh=true;
     renderAdmin();
+    el('bonus-section').classList.toggle('hide',data.bonusDecisions!==true);
+    if(data.bonusDecisions===true)loadBonuses();
     adminStatus('Обновлено: '+new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date())+' МСК.');
   }catch(error){if(generation===adminRequest){
     const keepSnapshot=adminData!==null&&requestedWeek===adminLoadedWeek;
@@ -792,5 +795,71 @@ function editAttendance(r){
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// Bonus requests have their own freshness and include all weeks.
+let bonusData=null,bonusDataFresh=false,bonusGeneration=0;
+el('bonus-refresh').onclick=loadBonuses;
+el('bonus-filter').onchange=renderBonuses;
+async function loadBonuses(){
+  if(!adminView)return;
+  const generation=++bonusGeneration;bonusDataFresh=false;
+  el('bonus-status').textContent='Загружаю запросы…';
+  renderBonuses();
+  try{
+    const data=await adminRequestData('',{view:'bonuses'});
+    if(generation!==bonusGeneration)return;
+    if(data.supported!==true)throw new Error(data.message||'Для надбавок требуется обновлённый Apps Script.');
+    bonusData=data;bonusDataFresh=true;renderBonuses();
+    const pending=(data.entries||[]).filter(r=>r.decision==='На рассмотрении').length;
+    el('bonus-status').textContent='На рассмотрении: '+pending+'. Данные по всем неделям.';
+  }catch(error){if(generation===bonusGeneration){
+    el('bonus-status').textContent=error.message+' Решения недоступны до успешного обновления.';renderBonuses();
+  }}
+}
+function renderBonuses(){
+  const root=el('bonus-list');root.replaceChildren();
+  if(!bonusData)return;
+  const entries=(bonusData.entries||[]).filter(r=>el('bonus-filter').value==='all'||r.decision==='На рассмотрении');
+  if(!entries.length){root.append(node('p','Просьб на рассмотрении нет.'));return}
+  for(const r of entries){
+    const card=node('article',null,'admin-record bonus-record');
+    card.append(node('h4',r.name+' · '+r.product+' × '+r.qty));
+    card.append(node('p',shortDate(r.date)+' · Заказ № '+r.order+' · '+r.status));
+    card.append(node('p',r.request,'bonus-request'));
+    card.append(node('p',r.decision+(Number(r.amount)>0?' · '+rubles(r.amount):'')));
+    if(r.result)card.append(node('p',r.result,'admin-warning'));
+    if(r.decision==='Одобрено')card.append(node('p','К выплате по этой заявке: '+rubles(Number(r.payBonus)||0)));
+    const edit=node('button',r.decision==='На рассмотрении'?'Рассмотреть просьбу':'Изменить решение');edit.type='button';
+    edit.disabled=!bonusDataFresh||!r.canDecide;card.append(edit);
+    edit.onclick=()=>editBonus(card,r,edit);
+    root.append(card);
+  }
+}
+function editBonus(card,r,button){
+  if(!bonusDataFresh||!r.canDecide)return;
+  button.disabled=true;
+  const form=node('form',null,'bonus-form');
+  const amount=field(form,'Согласованная сумма за заявку, ₽','number',Number(r.amount)>0?r.amount:r.suggested);
+  amount.min='0.01';amount.max='1000000';amount.step='0.01';amount.inputMode='decimal';
+  const reason=field(form,'Основание решения','textarea',String(r.reason||r.request).replace(/^Отказ:\s*/i,'').slice(0,600));
+  reason.required=true;reason.maxLength=600;
+  const hint=node('p','Сумма из просьбы - подсказка. Проверьте её: она не должна повторять оплату элементов стола.','admin-warning');form.append(hint);
+  const actions=node('div',null,'bonus-actions');
+  const approve=node('button','Одобрить');approve.type='button';
+  const decline=node('button','Отклонить');decline.type='button';decline.className='bonus-decline';
+  const cancel=node('button','Отмена');cancel.type='button';
+  actions.append(approve,decline,cancel);form.append(actions);card.append(form);
+  form.onsubmit=e=>e.preventDefault();
+  cancel.onclick=()=>{form.remove();button.disabled=!bonusDataFresh};
+  const decide=decision=>{
+    if(!bonusDataFresh){el('bonus-status').textContent='Обновите запросы перед решением.';return}
+    if(!reason.value.trim()){reason.reportValidity();reason.focus();return}
+    if(decision==='Одобрено'&&(!amount.value||!amount.reportValidity())){amount.focus();return}
+    const sum=decision==='Одобрено'?Number(amount.value):0;
+    if(!window.confirm(r.name+' · Заказ № '+r.order+'\n'+(decision==='Одобрено'?'Согласовать '+rubles(sum)+' за эту заявку?':'Отклонить надбавку?')))return;
+    send({version:1,type:'adminBonusDecision',key:r.key,link:r.link,rev:r.rev,decision,amount:sum,reason:reason.value.trim()});
+  };
+  approve.onclick=()=>decide('Одобрено');decline.onclick=()=>decide('Отклонено');
+}
 if(workerView)loadWorker();
 })();
+

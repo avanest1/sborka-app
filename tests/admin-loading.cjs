@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 
 const source=fs.readFileSync(__dirname+'/../app.js','utf8');
-const transport=source.slice(source.indexOf('function transientAdminError('),source.indexOf('function adminNormalizeWeek('));
+const transport=source.slice(source.indexOf('function transientAdminError('),source.indexOf('let workerData='));
 const scripts=[];
 const callbacks={};
 let mode='network',retryCount=0;
@@ -18,7 +18,7 @@ const document={
 };
 const adminRequestData=vm.runInNewContext(transport+';adminRequestData',{
   adminEndpoint:'https://script.google.com/macros/s/AKfycb-test/exec',
-  adminReadToken:'test-token',tg:null,document,window:callbacks,URL,URLSearchParams,
+  adminReadToken:'test-token',workerReadToken:'',tg:null,document,window:callbacks,URL,URLSearchParams,
   setTimeout,clearTimeout,Math,Error,
 });
 
@@ -69,3 +69,4 @@ async function testSnapshot(){
 }
 
 Promise.resolve().then(testTransport).then(testSnapshot).catch(error=>{console.error(error);process.exitCode=1});
+
