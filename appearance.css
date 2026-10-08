@@ -285,3 +285,14 @@ body.settings-open { overflow: hidden; }
   .brand { font-size: 10px; }
   .settings-options--walls { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+
+/* Bonus notes follow the same palette as the admin cards in every theme. */
+#admin .bonus-request { background: var(--surface-soft); color: var(--ink); border: 1px solid var(--line); }
+#admin .bonus-record { background: var(--surface); color: var(--ink); border-color: var(--line); }
+#admin .bonus-actions button { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--line); margin: 0; }
+#admin .bonus-actions .bonus-decline { background: var(--surface-soft); color: var(--ink); }
+#admin .admin-bulk { flex-wrap: wrap; }
+#admin .admin-bulk button { flex: 1 1 140px; min-width: 0; white-space: normal; }
+#admin #admin-bulk-count { flex: 1 1 140px; }
+#admin-bulk-progress { white-space: pre-line; color: var(--muted); }

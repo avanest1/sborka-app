@@ -154,8 +154,8 @@
           <label for="admin-filter-query" class="admin-queue-search">Поиск в выбранной неделе<input id="admin-filter-query" type="search" placeholder="Заказ, изделие или ID заявки" autocomplete="off"></label>
         </div>
         <p id="admin-queue-result" class="admin-queue-result"></p>
-        <div id="admin-bulk" class="admin-bulk hide"><strong id="admin-bulk-count">Выбрано: 0 из 8</strong><button id="admin-bulk-accept" type="button" disabled>Принять выбранные</button></div>
-        <div id="admin-assembly-list"></div>
+        <div id="admin-bulk" class="admin-bulk hide"><button id="admin-select-all" type="button">Выбрать все по фильтру</button><button id="admin-clear-selection" type="button">Снять выбор</button><strong id="admin-bulk-count">Выбрано: 0</strong><button id="admin-bulk-accept" type="button" disabled>Принять выбранные</button></div>
+        <p id="admin-bulk-progress" role="status"></p><div id="admin-assembly-list"></div>
         <h3 class="admin-group">Приход и уход</h3><div id="admin-attendance-list"></div>
         <h3 class="admin-group">Поиск по всей сборке</h3>
         <form id="global-search" class="order-search"><label for="global-query">№ заказа, изделие или сотрудник<input id="global-query" type="search" minlength="2" maxlength="80" placeholder="Например: 1488, стол, Леня" autocomplete="off" required></label><button type="submit">Найти</button></form>
@@ -189,7 +189,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 25</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 26</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

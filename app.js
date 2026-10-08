@@ -102,9 +102,9 @@ function send(payload){
   if(mutationPending){notice('Запрос уже передан боту. Дождитесь подтверждения в чате.');return}
   if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
   if(tg.platform==='unknown'){notice('Откройте приложение через кнопку «Личный кабинет» в чате с ботом.');return}
-  if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}
+  if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminAcceptSelection','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}
   if(payload.type==='adminBonusDecision'&&!bonusDataFresh){el('bonus-status').textContent='Список надбавок устарел. Сначала обновите его.';return}
-  if(adminView&&!['photoHelp','adminAccounting','adminBonusDecision','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminDeleteAssembly'].includes(payload.type)){
+  if(adminView&&!['photoHelp','adminAccounting','adminBonusDecision','adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminAcceptSelection','adminDeleteAssembly'].includes(payload.type)){
     const target=el('admin-employee').value;
     if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}
     payload.employee=target;
@@ -148,20 +148,38 @@ const startWeek=()=>{
 };
 el('admin-week').value=startWeek();
 el('admin-week').max=today;
+function encodeAssemblySelection(records){
+  const bytes=new Uint8Array(250),rows=new Set();
+  for(const r of records){
+    if(!Number.isInteger(r.row)||r.row<6||r.row>2005||rows.has(r.row))throw new Error('Неверный выбор заявок. Обновите учёт.');
+    rows.add(r.row);const i=r.row-6;bytes[i>>3]|=1<<(i&7);
+  }
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
 const selectedAssemblies=new Map();
 function bulkSelectionStatus(){
   const count=selectedAssemblies.size;
-  el('admin-bulk-count').textContent='Выбрано: '+count+' из 8';
-  el('admin-bulk-accept').disabled=count<2;
+  el('admin-bulk-count').textContent='Выбрано: '+count;
+  el('admin-bulk-accept').disabled=count<1||!adminDataFresh;
 }
+el('admin-select-all').onclick=()=>{
+  if(!adminDataFresh)return;
+  for(const r of filterAssemblyRows(adminData?.assembly||[],queueFilters()))
+    if(!r.statusMismatch&&['Ожидает приёмки','Своя переделка'].includes(r.status))selectedAssemblies.set(r.key,r);
+  renderAdmin();
+};
+el('admin-clear-selection').onclick=()=>{selectedAssemblies.clear();renderAdmin()};
 el('admin-bulk-accept').onclick=()=>{
   const chosen=[...selectedAssemblies.values()];
-  if(chosen.length<2||chosen.length>8)return;
-  const summary=chosen.map(r=>'• '+r.name+' · '+r.product+' × '+r.qty+
-    ' · заказ № '+r.order+' · ID '+r.key).join('\n');
+  if(!chosen.length)return;
+  if(!adminData?.bulkSelectionToken&&chosen.length>8){adminStatus('Установите Apps Script V26 и обновите учёт для приёмки всего выбора.');return}
+  const summary=chosen.slice(0,12).map(r=>'• '+r.name+' · '+r.product+' × '+r.qty+
+    ' · заказ № '+r.order).join('\n')+(chosen.length>12?'\nИ ещё '+(chosen.length-12)+' заявок.':'');
   if(!window.confirm('Принять '+chosen.length+' заявок и учесть их в зарплате?\n\n'+summary))return;
-  send({version:1,type:'adminAcceptAssemblies',status:'Принято',
-    items:chosen.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
+  if(adminData?.bulkSelectionToken)send({version:1,type:'adminAcceptSelection',status:'Принято',
+    token:adminData.bulkSelectionToken,selection:encodeAssemblySelection(chosen)});
+  else if(chosen.length===1){const {row,key,link,rev}=chosen[0];send({version:1,type:'adminAcceptAssembly',status:'Принято',row,key,link,rev})}
+  else send({version:1,type:'adminAcceptAssemblies',status:'Принято',items:chosen.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
   adminStatus('Запрос передан боту. Дождитесь подтверждения в чате, затем обновите список.');
 };
 const node=(tag,content,klass)=>{
@@ -691,6 +709,7 @@ function renderAdmin(){
   const attendance=adminData?.attendance||[];
   el('admin-bulk').classList.toggle('hide',adminData?.bulkAccept!==true);
   bulkSelectionStatus();
+  el('admin-bulk-progress').textContent=(adminData?.bulkJobs||[]).map(j=>j.state+' · принято '+j.accepted+' из '+j.total+(j.failed?' · не принято '+j.failed:'')).join('\n');
   const pending=allAssembly.filter(r=>r.status==='Ожидает приёмки').length;
   const rework=allAssembly.filter(r=>r.status==='Своя переделка').length;
   const mismatches=allAssembly.filter(r=>r.statusMismatch).length;
@@ -709,12 +728,10 @@ function renderAdmin(){
     if(adminData?.bulkAccept===true&&!r.statusMismatch&&
         (r.status==='Ожидает приёмки'||r.status==='Своя переделка')){
       const choice=node('label',null,'admin-select');
-      const checkbox=document.createElement('input');checkbox.type='checkbox';
+      const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=selectedAssemblies.has(r.key);
       choice.append(checkbox,node('span','Выбрать для приёмки'));
       checkbox.onchange=()=>{
         if(checkbox.checked){
-          if(selectedAssemblies.size>=8){checkbox.checked=false;
-            adminStatus('За один раз можно принять не больше восьми заявок.');return}
           selectedAssemblies.set(r.key,r);
         }else selectedAssemblies.delete(r.key);
         bulkSelectionStatus();
@@ -821,7 +838,7 @@ function renderBonuses(){
   const entries=(bonusData.entries||[]).filter(r=>el('bonus-filter').value==='all'||r.decision==='На рассмотрении');
   if(!entries.length){root.append(node('p','Просьб на рассмотрении нет.'));return}
   for(const r of entries){
-    const card=node('article',null,'admin-record bonus-record');
+    const card=node('article',null,'admin-card bonus-record');
     card.append(node('h4',r.name+' · '+r.product+' × '+r.qty));
     card.append(node('p',shortDate(r.date)+' · Заказ № '+r.order+' · '+r.status));
     card.append(node('p',r.request,'bonus-request'));

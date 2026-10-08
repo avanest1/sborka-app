@@ -8,4 +8,4 @@
 .keyboard-done:focus-visible{outline:3px solid #3a987a;outline-offset:2px}
 
 
-.bonus-request{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f8f2;border-radius:12px;padding:12px}.bonus-form{margin-top:12px}.bonus-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.bonus-actions button{flex:1 1 130px;min-width:0;white-space:normal}.bonus-decline{background:#fff2ed;color:#92432d;border-color:#eed2c7}.bonus-record h4{overflow-wrap:anywhere}
+.bonus-request{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface-soft,#f4f8f2);color:var(--ink,#1d2825);border-radius:12px;padding:12px}.bonus-form{margin-top:12px}.bonus-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.bonus-actions button{flex:1 1 130px;min-width:0;white-space:normal}.bonus-decline{background:var(--surface-soft,#fff2ed);color:var(--ink,#92432d);border-color:var(--line,#eed2c7)}.bonus-record h4{overflow-wrap:anywhere}
