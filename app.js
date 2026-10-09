@@ -817,11 +817,14 @@ function editAttendance(r){
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 // Decisions stay in the WebView. An opaque POST response is NEVER a success receipt.
-let approvalPending=null,approvalChecking=false,bulkWatchGeneration=0;
+let approvalPending=null,approvalChecking=false,bulkWatchGeneration=0,bonusDecisionStatus=null;
 const approvalStorageKey='sborka-owner-pending-decision-v27';
-function approvalFeedback(message){
+function approvalFeedback(message,type=approvalPending?.payload.type){
   el('admin-action-status').textContent=message;
-  if(approvalPending?.payload.type==='adminBonusDecision')el('bonus-status').textContent=message;
+  if(type==='adminBonusDecision'){
+    el('bonus-status').textContent=message;
+    if(bonusDecisionStatus)bonusDecisionStatus.textContent=message;
+  }
 }
 function rememberApproval(value){
   try{value?localStorage.setItem(approvalStorageKey,JSON.stringify(value)):localStorage.removeItem(approvalStorageKey)}catch(_){/* receipt remains in this open session */}
@@ -880,8 +883,7 @@ async function checkApproval(){
         approvalPending=null;mutationPending=false;rememberApproval(null);
         el('admin-action-check').classList.add('hide');bulkSelectionStatus();
         await refreshDecisionViews(type);
-        el('admin-action-status').textContent=message;
-        if(type==='adminBonusDecision')el('bonus-status').textContent=message;
+        approvalFeedback(message,type);
         if(result.state==='done'&&type==='adminAcceptSelection')void watchBulkDecision(pending.id);
         return;
       }
@@ -897,9 +899,9 @@ async function checkApproval(){
   finally{approvalChecking=false;el('admin-action-check').disabled=false}
 }
 async function sendApproval(payload){
-  if(mutationPending)return;
-  if(!adminActionToken&&!tg?.initData){approvalFeedback('Обновите кнопку кабинета после установки Apps Script V27: запустите tgEnableKeepOpen или отправьте /menu один раз. Решение не отправлено.');return}
-  if(new TextEncoder().encode(JSON.stringify(payload)).length>4096){approvalFeedback('Решение слишком длинное. Сократите комментарий.');return}
+  if(mutationPending){approvalFeedback('Предыдущее решение ещё не подтверждено. Нажмите «Проверить решение» и дождитесь результата.',payload.type);return}
+  if(!adminActionToken&&!tg?.initData){approvalFeedback('Обновите кнопку кабинета после установки Apps Script V27: запустите tgEnableKeepOpen или отправьте /menu один раз. Решение не отправлено.',payload.type);return}
+  if(new TextEncoder().encode(JSON.stringify(payload)).length>4096){approvalFeedback('Решение слишком длинное. Сократите комментарий.',payload.type);return}
   mutationPending=true;bulkWatchGeneration++;bulkSelectionStatus();
   try{
     const id=approvalRequestId();
@@ -911,7 +913,7 @@ async function sendApproval(payload){
     await checkApproval();
   }catch(error){
     if(!approvalPending){mutationPending=false;bulkSelectionStatus()}
-    approvalFeedback(error.message);
+    approvalFeedback(error.message,payload.type);
   }
 }
 el('admin-action-check').onclick=()=>void checkApproval();
@@ -969,8 +971,9 @@ function editBonus(card,r,button){
   if(!bonusDataFresh||!r.canDecide)return;
   button.disabled=true;
   const form=node('form',null,'bonus-form');
-  const amount=field(form,'Согласованная сумма за заявку, ₽','number',Number(r.amount)>0?r.amount:r.suggested);
-  amount.min='0.01';amount.max='1000000';amount.step='0.01';amount.inputMode='decimal';
+  // Text + decimal keyboard accepts both comma and dot on mobile. Validate explicitly.
+  const amount=field(form,'Согласованная сумма за заявку, ₽','text',Number(r.amount)>0?r.amount:r.suggested);
+  amount.inputMode='decimal';amount.maxLength=12;amount.autocomplete='off';
   const reason=field(form,'Основание решения','textarea',String(r.reason||r.request).replace(/^Отказ:\s*/i,'').slice(0,600));
   reason.required=true;reason.maxLength=600;
   const hint=node('p','Сумма из просьбы - подсказка. Проверьте её: она не должна повторять оплату элементов стола.','admin-warning');form.append(hint);
@@ -978,17 +981,51 @@ function editBonus(card,r,button){
   const approve=node('button','Одобрить');approve.type='button';
   const decline=node('button','Отклонить');decline.type='button';decline.className='bonus-decline';
   const cancel=node('button','Отмена');cancel.type='button';
-  actions.append(approve,decline,cancel);form.append(actions);card.append(form);
+  actions.append(approve,decline,cancel);form.append(actions);
+  const feedback=node('p','','bonus-action-status');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+  const confirmation=node('div',null,'bonus-confirm hide');
+  const summary=node('p','');
+  const confirm=node('button','Подтвердить решение');confirm.type='button';
+  const back=node('button','Изменить');back.type='button';
+  const confirmActions=node('div',null,'bonus-actions');confirmActions.append(confirm,back);
+  confirmation.append(summary,confirmActions);form.append(feedback,confirmation);card.append(form);
+  const report=message=>{bonusDecisionStatus=feedback;approvalFeedback(message,'adminBonusDecision')};
+  let prepared=null,sending=false;
   form.onsubmit=e=>e.preventDefault();
-  cancel.onclick=()=>{form.remove();button.disabled=!bonusDataFresh};
+  const reset=()=>{prepared=null;confirmation.classList.add('hide');actions.classList.remove('hide')};
+  amount.oninput=reason.oninput=reset;
+  back.onclick=()=>{reset();report('Решение ещё не отправлено. Проверьте сумму и основание.')};
+  cancel.onclick=()=>{if(sending)return;form.remove();if(bonusDecisionStatus===feedback)bonusDecisionStatus=null;button.disabled=!bonusDataFresh};
   const decide=decision=>{
-    if(!bonusDataFresh){el('bonus-status').textContent='Обновите запросы перед решением.';return}
-    if(!reason.value.trim()){reason.reportValidity();reason.focus();return}
-    if(decision==='Одобрено'&&(!amount.value||!amount.reportValidity())){amount.focus();return}
-    const sum=decision==='Одобрено'?Number(amount.value):0;
-    if(!window.confirm(r.name+' · Заказ № '+r.order+'\n'+(decision==='Одобрено'?'Согласовать '+rubles(sum)+' за эту заявку?':'Отклонить надбавку?')))return;
-    send({version:1,type:'adminBonusDecision',key:r.key,link:r.link,rev:r.rev,decision,amount:sum,reason:reason.value.trim()});
+    if(mutationPending){report('Предыдущее решение ещё не подтверждено. Нажмите «Проверить решение» и дождитесь результата.');return}
+    if(!bonusDataFresh){report('Обновите запросы перед решением.');return}
+    const explanation=reason.value.trim();
+    if(!explanation||explanation.length>600){report('Укажите основание решения: от 1 до 600 символов.');reason.focus();return}
+    const raw=amount.value.trim().replace(',','.');
+    const sum=decision==='Одобрено'?Number(raw):0;
+    if(decision==='Одобрено'&&(!/^\d+(?:\.\d{1,2})?$/.test(raw)||sum<=0||sum>1000000)){
+      report('Укажите сумму от 0,01 до 1000000 ₽, не более двух цифр после запятой.');amount.focus();return;
+    }
+    prepared={version:1,type:'adminBonusDecision',key:r.key,link:r.link,rev:r.rev,decision,amount:sum,reason:explanation};
+    hideInputKeyboard();
+    summary.textContent=r.name+' · Заказ № '+r.order+' · '+(decision==='Одобрено'?'Одобрить '+rubles(sum)+' за эту заявку':'Отклонить надбавку');
+    // Confirmation is inside the app: native browser dialogs may be suppressed in a WebView.
+    confirmation.classList.remove('hide');actions.classList.add('hide');
+    report('Проверьте решение ниже и нажмите «Подтвердить решение».');
   };
+  confirm.onclick=async()=>{
+    if(sending||!prepared)return;
+    if(mutationPending){report('Предыдущее решение ещё не подтверждено. Нажмите «Проверить решение».');return}
+    if(!bonusDataFresh){reset();report('Список обновился. Откройте просьбу заново перед подтверждением.');return}
+    sending=true;confirm.disabled=back.disabled=cancel.disabled=true;amount.readOnly=reason.readOnly=true;
+    bonusDecisionStatus=feedback;report('Проверяю и отправляю решение…');
+    try{await sendApproval(prepared)}
+    catch(error){report('Не удалось отправить решение: '+error.message)}
+    finally{sending=false;confirm.disabled=back.disabled=cancel.disabled=false;amount.readOnly=reason.readOnly=false}
+  };
+  const check=node('button','Проверить решение');check.type='button';
+  check.onclick=()=>{bonusDecisionStatus=feedback;if(!approvalPending){report('Неподтверждённого решения нет. Проверьте сумму и нажмите «Одобрить» или «Отклонить».');return}void checkApproval()};
+  form.append(check);
   approve.onclick=()=>decide('Одобрено');decline.onclick=()=>decide('Отклонено');
 }
 if(workerView)loadWorker();

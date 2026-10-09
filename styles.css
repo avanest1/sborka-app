@@ -9,3 +9,5 @@
 
 
 .bonus-request{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface-soft,#f4f8f2);color:var(--ink,#1d2825);border-radius:12px;padding:12px}.bonus-form{margin-top:12px}.bonus-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.bonus-actions button{flex:1 1 130px;min-width:0;white-space:normal}.bonus-decline{background:var(--surface-soft,#fff2ed);color:var(--ink,#92432d);border-color:var(--line,#eed2c7)}.bonus-record h4{overflow-wrap:anywhere}
+
+.bonus-confirm{margin-top:12px;padding:12px;border:1px solid var(--line,#d9e3da);border-radius:12px;background:var(--surface-soft,#f4f8f2);color:var(--ink,#1d2825)}.bonus-confirm p{overflow-wrap:anywhere}.bonus-action-status{white-space:pre-wrap;overflow-wrap:anywhere}
