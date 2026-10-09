@@ -138,7 +138,7 @@
         <h3 class="admin-group">Выбранная неделя</h3>
         <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
-        <p id="admin-period"></p><div id="admin-status" role="status"></div>
+        <p id="admin-period"></p><p id="admin-action-status" class="worker-status" role="status" aria-live="polite"></p><button id="admin-action-check" class="hide" type="button">Проверить решение</button><div id="admin-status" role="status"></div>
         <div id="admin-checks" role="status"></div>
         <div id="bonus-section" class="hide">
           <h3 class="admin-group">Просьбы о надбавке · все недели</h3>
@@ -189,7 +189,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 26</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 27</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

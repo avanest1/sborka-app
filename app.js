@@ -99,7 +99,7 @@ function loadingForm(){
 }
 el('work-kind').onchange=loadingForm;el('product').onchange=loadingForm;
 function send(payload){
-  if(mutationPending){notice('Запрос уже передан боту. Дождитесь подтверждения в чате.');return}
+  if(mutationPending){notice('Предыдущее решение ещё не подтверждено. Дождитесь результата или нажмите «Проверить решение».');return}
   if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
   if(tg.platform==='unknown'){notice('Откройте приложение через кнопку «Личный кабинет» в чате с ботом.');return}
   if(adminView&&['adminEditAssembly','adminEditAttendance','adminAcceptAssembly','adminAcceptAssemblies','adminAcceptSelection','adminDeleteAssembly'].includes(payload.type)&&!adminDataFresh){adminStatus('Данные устарели. Дождитесь успешного обновления, прежде чем менять записи.');return}
@@ -108,6 +108,9 @@ function send(payload){
     const target=el('admin-employee').value;
     if(!staff.includes(target)){notice('Сначала выберите сотрудника.');el('admin-employee').focus();return}
     payload.employee=target;
+  }
+  if(adminView&&['adminBonusDecision','adminAcceptAssembly','adminAcceptSelection'].includes(payload.type)){
+    void sendApproval(payload);return;
   }
   const raw=JSON.stringify(payload);
   if(new TextEncoder().encode(raw).length>4096){notice('Комментарий слишком длинный для отправки.');return}
@@ -135,11 +138,12 @@ el('assembly-form').onsubmit=e=>{
 };
 
 // Read only, signed Telegram data. The endpoint URL is supplied by the bot to
-// the owner's keyboard button. Mutations always use Telegram sendData above.
+// the owner's keyboard button. Owner approvals use a separate POST action capability.
 // Pin the read endpoint so an older keyboard URL cannot send a valid session
 // back to the superseded Google-login deployment.
 const adminEndpoint=
   'https://script.google.com/macros/s/AKfycbz2ZOC_Pibu90pl6edNIMf0krFJKy_3HPj7MreiDk39psF5gsUtQoW4FCSWEUa3VSBz/exec';
+const adminActionToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminAction')||'';
 const adminReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminRead')||'';
 const startWeek=()=>{
   const d=new Date(today+'T12:00:00Z');
@@ -160,7 +164,7 @@ const selectedAssemblies=new Map();
 function bulkSelectionStatus(){
   const count=selectedAssemblies.size;
   el('admin-bulk-count').textContent='Выбрано: '+count;
-  el('admin-bulk-accept').disabled=count<1||!adminDataFresh;
+  el('admin-bulk-accept').disabled=count<1||!adminDataFresh||mutationPending;
 }
 el('admin-select-all').onclick=()=>{
   if(!adminDataFresh)return;
@@ -180,7 +184,7 @@ el('admin-bulk-accept').onclick=()=>{
     token:adminData.bulkSelectionToken,selection:encodeAssemblySelection(chosen)});
   else if(chosen.length===1){const {row,key,link,rev}=chosen[0];send({version:1,type:'adminAcceptAssembly',status:'Принято',row,key,link,rev})}
   else send({version:1,type:'adminAcceptAssemblies',status:'Принято',items:chosen.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
-  adminStatus('Запрос передан боту. Дождитесь подтверждения в чате, затем обновите список.');
+  adminStatus('Приёмка отправляется. Результат появится внутри приложения.');
 };
 const node=(tag,content,klass)=>{
   const n=document.createElement(tag);
@@ -572,7 +576,7 @@ function acceptAssembly(r,status){
   if(!window.confirm('Заявка '+r.key+' · заказ № '+r.order+'.\n'+message))return;
   send({version:1,type:'adminAcceptAssembly',row:r.row,key:r.key,
     link:r.link,rev:r.rev,status});
-  adminStatus('Запрос отправлен боту. Дождитесь подтверждения в чате, затем обновите список.');
+  adminStatus('Решение отправляется. Результат появится внутри приложения.');
 }
 function acceptanceChoices(r){
   if(r.statusMismatch)return [['Синхронизировать',r.status]];
@@ -699,7 +703,7 @@ function renderOrder(data){
     addDeleteButton(actions,r);
     box.append(actions);root.append(box);
   }
-  root.append(node('p','После решения по приёмке дождитесь ответа бота и повторно найдите заказ: карточка показывает данные на момент последней загрузки.','admin-warning'));
+  root.append(node('p','После решения статус обновится внутри приложения. Карточка показывает данные на момент последней загрузки.','admin-warning'));
 }
 function renderAdmin(){
   const a=el('admin-assembly-list'),t=el('admin-attendance-list');
@@ -812,6 +816,116 @@ function editAttendance(r){
   };
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// Decisions stay in the WebView. An opaque POST response is NEVER a success receipt.
+let approvalPending=null,approvalChecking=false,bulkWatchGeneration=0;
+const approvalStorageKey='sborka-owner-pending-decision-v27';
+function approvalFeedback(message){
+  el('admin-action-status').textContent=message;
+  if(approvalPending?.payload.type==='adminBonusDecision')el('bonus-status').textContent=message;
+}
+function rememberApproval(value){
+  try{value?localStorage.setItem(approvalStorageKey,JSON.stringify(value)):localStorage.removeItem(approvalStorageKey)}catch(_){/* receipt remains in this open session */}
+}
+function approvalRequestId(){
+  if(!window.crypto?.getRandomValues)throw new Error('Не удалось подготовить безопасное решение. Откройте кабинет заново.');
+  const bytes=new Uint8Array(16);window.crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+function postApproval(pending){
+  const auth=adminActionToken?{actionToken:adminActionToken}:{initData:tg?.initData||''};
+  // No secrets in query strings; text/plain needs no cross-origin preflight.
+  // Google redirects its response, which is opaque. Only the signed read confirms it.
+  void fetch(adminEndpoint,{method:'POST',mode:'no-cors',credentials:'omit',referrerPolicy:'no-referrer',
+    headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({...auth,requestId:pending.id,payload:pending.payload})}).catch(()=>{});
+}
+const approvalPause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function refreshDecisionViews(type){
+  if(type==='adminBonusDecision')await loadBonuses();
+  else{
+    await loadAdmin();
+    if(orderData)await loadOrder();
+    if(el('global-query').value.trim().length>=2)await loadGlobalSearch();
+  }
+}
+async function watchBulkDecision(id){
+  const generation=++bulkWatchGeneration;
+  for(let i=0;i<36;i++){
+    await approvalPause(10000);
+    if(generation!==bulkWatchGeneration)return;
+    try{
+      const result=await adminRequestData('',{view:'actionStatus',requestId:id});
+      const job=result.bulkJob;
+      if(!job)return;
+      if(mutationPending)continue;
+      await loadAdmin();
+      if(generation!==bulkWatchGeneration)return;
+      el('admin-action-status').textContent='Массовая приёмка: принято '+job.accepted+' из '+job.total+
+        (job.failed?' · не принято '+job.failed:'')+' · '+job.state+'.';
+      if(job.state==='Завершено'||job.state.startsWith('Пауза'))return;
+    }catch(_){/* next poll may recover; the saved server queue keeps running */}
+  }
+}
+async function checkApproval(){
+  if(!approvalPending||approvalChecking)return;
+  approvalChecking=true;el('admin-action-check').disabled=true;
+  const pending=approvalPending;
+  try{
+    let sends=0;
+    for(let attempt=0;attempt<20;attempt++){
+      const result=await adminRequestData('',{view:'actionStatus',requestId:pending.id});
+      if(result.supported!==true)throw new Error('Установите Apps Script V27 и обновите действующее развёртывание.');
+      if(['done','failed'].includes(result.state)){
+        const type=pending.payload.type;
+        const message=(result.state==='failed'?'Решение требует проверки. ':'')+result.message;
+        approvalPending=null;mutationPending=false;rememberApproval(null);
+        el('admin-action-check').classList.add('hide');bulkSelectionStatus();
+        await refreshDecisionViews(type);
+        el('admin-action-status').textContent=message;
+        if(type==='adminBonusDecision')el('bonus-status').textContent=message;
+        if(result.state==='done'&&type==='adminAcceptSelection')void watchBulkDecision(pending.id);
+        return;
+      }
+      if(result.state==='unknown'&&sends<3&&(adminActionToken||tg?.initData)){
+        postApproval(pending);sends++;
+      }
+      approvalFeedback(result.state==='waiting'?'Решение ещё не подтверждено. Сервер повторит проверку; повторного начисления не будет.':
+        result.state==='unknown'?'Проверяю получение решения…':'Сохраняю решение… Приложение можно оставить открытым.');
+      await approvalPause(5000);
+    }
+    approvalFeedback('Подтверждение пока не получено. Нажмите «Проверить решение». Если сессия истекла, откройте новую кнопку кабинета из чата. Не создавайте повторную заявку.');
+  }catch(error){approvalFeedback(error.message+' Решение пока не подтверждено: нажмите «Проверить решение».')}
+  finally{approvalChecking=false;el('admin-action-check').disabled=false}
+}
+async function sendApproval(payload){
+  if(mutationPending)return;
+  if(!adminActionToken&&!tg?.initData){approvalFeedback('Обновите кнопку кабинета после установки Apps Script V27: запустите tgEnableKeepOpen или отправьте /menu один раз. Решение не отправлено.');return}
+  if(new TextEncoder().encode(JSON.stringify(payload)).length>4096){approvalFeedback('Решение слишком длинное. Сократите комментарий.');return}
+  mutationPending=true;bulkWatchGeneration++;bulkSelectionStatus();
+  try{
+    const id=approvalRequestId();
+    // Check support before the first POST, so an old backend cannot silently discard it.
+    const ready=await adminRequestData('',{view:'actionStatus',requestId:id});
+    if(ready.supported!==true)throw new Error('Для сохранения без закрытия установите Apps Script V27 и обновите развёртывание.');
+    approvalPending={id,payload};rememberApproval(approvalPending);
+    el('admin-action-check').classList.remove('hide');approvalFeedback('Отправляю решение…');
+    await checkApproval();
+  }catch(error){
+    if(!approvalPending){mutationPending=false;bulkSelectionStatus()}
+    approvalFeedback(error.message);
+  }
+}
+el('admin-action-check').onclick=()=>void checkApproval();
+function resumeApproval(){
+  if(!adminView)return;
+  try{
+    const saved=JSON.parse(localStorage.getItem(approvalStorageKey)||'null');
+    if(!saved||!/^[a-f0-9]{32}$/.test(saved.id)||!['adminBonusDecision','adminAcceptAssembly','adminAcceptSelection'].includes(saved.payload?.type))return;
+    approvalPending=saved;mutationPending=true;el('admin-action-check').classList.remove('hide');
+    approvalFeedback('Проверяю предыдущее решение…');void checkApproval();
+  }catch(_){/* unavailable storage does not authorize any action */}
+}
+if(adminView)setTimeout(resumeApproval,0);
+
 // Bonus requests have their own freshness and include all weeks.
 let bonusData=null,bonusDataFresh=false,bonusGeneration=0;
 el('bonus-refresh').onclick=loadBonuses;

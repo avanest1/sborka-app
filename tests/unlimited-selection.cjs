@@ -6,7 +6,7 @@ const el=id=>{if(!elements.has(id))elements.set(id,{textContent:'',disabled:fals
 const items=Array.from({length:2000},(_,i)=>({row:i+6,key:'TG-'+i,link:'SB-'+String(i+1).padStart(6,'0'),rev:'r'.repeat(24),name:'Сборщик',product:'Стол',qty:1,order:'1675',status:'Ожидает приёмки'}));
 let lastConfirm='';
 const data={assembly:items,bulkSelectionToken:'a'.repeat(32)};
-const c=vm.createContext({el,adminData:data,adminDataFresh:true,filterAssemblyRows:r=>r,queueFilters:()=>({}),renderAdmin(){},adminStatus(){},window:{confirm:text=>(lastConfirm=text,true)},send:v=>sent.push(v),btoa,Uint8Array,Map,Set,String,Number});
+const c=vm.createContext({el,adminData:data,adminDataFresh:true,mutationPending:false,filterAssemblyRows:r=>r,queueFilters:()=>({}),renderAdmin(){},adminStatus(){},window:{confirm:text=>(lastConfirm=text,true)},send:v=>sent.push(v),btoa,Uint8Array,Map,Set,String,Number});
 vm.runInContext(code,c);
 el('admin-select-all').onclick();vm.runInContext('bulkSelectionStatus()',c);assert.equal(el('admin-bulk-count').textContent,'Выбрано: 2000');assert.equal(el('admin-bulk-accept').disabled,false);
 el('admin-bulk-accept').onclick();const payload=sent.pop();assert.equal(payload.type,'adminAcceptSelection');assert(Buffer.byteLength(JSON.stringify(payload))<4096);assert.equal(payload.selection.length,334);assert.deepEqual([...Buffer.from(payload.selection,'base64url')],Array(250).fill(255));assert(lastConfirm.length<2400,'Confirmation must be usable on a phone');
