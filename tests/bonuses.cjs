@@ -5,7 +5,7 @@ assert(app.includes("data.bonusDecisions===true)loadBonuses()"),'Old backend mus
 assert(app.includes("if(payload.type==='adminBonusDecision'&&!bonusDataFresh)"));
 assert(app.includes("'adminAccounting','adminBonusDecision'"),'Bonus decision must not require an employee selection');
 assert(html.includes('Просьбы о надбавке · все недели'));
-const code=app.slice(app.indexOf('let bonusData=null,'),app.indexOf('if(workerView)loadWorker();'));
+const code=app.slice(app.indexOf('let bonusData=null,'),app.indexOf('// Owner-only monthly assignments.'));
 const elements=new Map();
 function node(tag,text){return {tag,textContent:text,children:[],value:'',disabled:false,classList:{add(){},remove(){}},setAttribute(){},append(...n){this.children.push(...n)},replaceChildren(...n){this.children=n},remove(){this.removed=true},focus(){},reportValidity(){return !!this.value}}}
 const el=id=>{if(!elements.has(id))elements.set(id,node('div'));return elements.get(id)};

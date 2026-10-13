@@ -21,7 +21,7 @@ function runNavigation(adminView){
   }
   let loads=0;
   vm.runInNewContext(code,{
-    el:id=>elements.get(id),adminView,workerView:!adminView,loadWorker(){},loadFinance(){},loadAdmin:()=>loads++,String,
+    el:id=>elements.get(id),adminView,workerView:!adminView,loadWorker(){},loadFinance(){},loadQualifications(){},loadAdmin:()=>loads++,String,
   });
   return {elements,loads:()=>loads};
 }

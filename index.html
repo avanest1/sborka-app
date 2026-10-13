@@ -167,7 +167,7 @@
         <div id="order-status" role="status"></div><div id="order-card" class="order-card-list"></div>
         <div id="admin-editor" class="hide form-card"></div>
       </section>
-      <section id="finance" class="hide" aria-labelledby="finance-title"><div class="section-heading"><span class="section-heading__eyebrow">КАБИНЕТ РУКОВОДИТЕЛЯ</span><h2 id="finance-title">Начисления и выплаты</h2><p>Просмотр всех сборщиков. Выплаты — недельные суммы из таблицы, не отдельные переводы.</p></div><button id="finance-refresh" type="button" class="worker-refresh">Обновить финансы</button><p id="finance-status" role="status"></p><div class="worker-pay-card"><label for="finance-month">Месяц</label><select id="finance-month"></select><label for="finance-employee">Сотрудник</label><select id="finance-employee"><option value="">Все сборщики</option></select><p class="worker-pay-detail">Неделя относится к месяцу по дате понедельника. Остаток показывается на конец последней недели, а не складывается.</p><div id="finance-summary" class="pay-breakdown"></div></div><div id="finance-list" class="worker-list"></div></section>
+      <section id="finance" class="hide" aria-labelledby="finance-title"><div class="section-heading"><span class="section-heading__eyebrow">КАБИНЕТ РУКОВОДИТЕЛЯ</span><h2 id="finance-title">Начисления и выплаты</h2><p>Просмотр всех сборщиков. Выплаты — недельные суммы из таблицы, не отдельные переводы.</p></div><button id="finance-refresh" type="button" class="worker-refresh">Обновить финансы</button><p id="finance-status" role="status"></p><div class="worker-pay-card"><label for="finance-month">Месяц</label><select id="finance-month"></select><label for="finance-employee">Сотрудник</label><select id="finance-employee"><option value="">Все сборщики</option></select><p class="worker-pay-detail">Неделя относится к месяцу по дате понедельника. Остаток показывается на конец последней недели, а не складывается.</p><div id="finance-summary" class="pay-breakdown"></div></div><div id="finance-list" class="worker-list"></div><div class="qualification-panel"><h3>Квалификация за месяц</h3><p>Назначает Андрей. Уровень действует весь выбранный календарный месяц и не переносится на следующий. Доплата начисляется один раз за месяц.</p><div class="admin-tools"><label for="qualification-month">Календарный месяц<input id="qualification-month" type="month" min="2026-10"></label><button id="qualification-refresh" type="button">Обновить квалификацию</button></div><p id="qualification-status" role="status" aria-live="polite">Для назначения требуется обновлённый Apps Script V30.</p><div id="qualification-list"></div></div></section>
       <section id="assembly" class="hide" aria-labelledby="assembly-title">
         <div class="section-heading"><span class="section-heading__eyebrow">УЧЁТ ИЗДЕЛИЙ</span><h2 id="assembly-title">Сдать сборку</h2><p>Одна заявка — один вид изделия по одному заказу.</p></div>
         <form id="assembly-form">
@@ -191,7 +191,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 29</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 30</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

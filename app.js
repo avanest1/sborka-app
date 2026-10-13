@@ -66,7 +66,7 @@ el('tab-shift').onclick=()=>{section('shift');if(workerView)loadWorker()};el('ta
 el('tab-history').onclick=()=>{if(!workerView)return;section('history');loadWorker()};
 el('tab-earnings').onclick=()=>{if(!workerView)return;section('earnings');loadWorker()};
 el('tab-admin').onclick=()=>{if(!adminView)return;section('admin');loadAdmin()};
-el('tab-finance').onclick=()=>{if(!adminView)return;section('finance');loadFinance()};
+el('tab-finance').onclick=()=>{if(!adminView)return;section('finance');loadFinance();loadQualifications()};
 function option(select,value){const item=document.createElement('option');item.value=value;item.textContent=value;select.append(item)}
 products.forEach(n=>option(el('product'),n));periods.forEach(n=>option(el('period'),n));
 for(const [i,name] of parts.entries()){const row=document.createElement('div');row.className='part';const label=document.createElement('label');label.htmlFor='part-'+i;label.textContent=name;const input=document.createElement('input');input.id='part-'+i;input.type='number';input.min='0';input.max='1000';input.step='1';input.value='0';input.inputMode='numeric';row.append(label,input);el('parts').append(row)}
@@ -858,13 +858,17 @@ function editAttendance(r){
   box.classList.remove('hide');box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 // Decisions stay in the WebView. An opaque POST response is NEVER a success receipt.
-let approvalPending=null,approvalChecking=false,bulkWatchGeneration=0,bonusDecisionStatus=null;
+let approvalPending=null,approvalChecking=false,bulkWatchGeneration=0,bonusDecisionStatus=null,qualificationDecisionStatus=null;
 const approvalStorageKey='sborka-owner-pending-decision-v27';
 function approvalFeedback(message,type=approvalPending?.payload.type){
   el('admin-action-status').textContent=message;
   if(type==='adminBonusDecision'){
     el('bonus-status').textContent=message;
     if(bonusDecisionStatus)bonusDecisionStatus.textContent=message;
+  }
+  if(type==='adminQualification'){
+    if(el('qualification-status'))el('qualification-status').textContent=message;
+    if(qualificationDecisionStatus)qualificationDecisionStatus.textContent=message;
   }
 }
 function rememberApproval(value){
@@ -885,7 +889,8 @@ function postApproval(pending){
 }
 const approvalPause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function refreshDecisionViews(type){
-  if(type==='adminBonusDecision')await loadBonuses();
+  if(type==='adminQualification'){await loadQualifications();await loadFinance(true)}
+  else if(type==='adminBonusDecision')await loadBonuses();
   else{
     await loadAdmin();
     if(orderData)await loadOrder();
@@ -963,7 +968,7 @@ function resumeApproval(){
   if(!adminView)return;
   try{
     const saved=JSON.parse(localStorage.getItem(approvalStorageKey)||'null');
-    if(!saved||!/^[a-f0-9]{32}$/.test(saved.id)||!['adminBonusDecision','adminAcceptAssembly','adminAcceptSelection'].includes(saved.payload?.type))return;
+    if(!saved||!/^[a-f0-9]{32}$/.test(saved.id)||!['adminBonusDecision','adminAcceptAssembly','adminAcceptSelection','adminQualification'].includes(saved.payload?.type))return;
     approvalPending=saved;mutationPending=true;el('admin-action-check').classList.remove('hide');
     approvalFeedback('Проверяю предыдущее решение…');void checkApproval();
   }catch(_){/* unavailable storage does not authorize any action */}
@@ -1069,6 +1074,83 @@ function editBonus(card,r,button){
   check.onclick=()=>{bonusDecisionStatus=feedback;if(!approvalPending){report('Неподтверждённого решения нет. Проверьте сумму и нажмите «Одобрить» или «Отклонить».');return}void checkApproval()};
   form.append(check);
   approve.onclick=()=>decide('Одобрено');decline.onclick=()=>decide('Отклонено');
+}
+// Owner-only monthly assignments. No selected level is copied to a new month.
+let qualificationData=null,qualificationFresh=false,qualificationGeneration=0;
+const qualificationMonthInput=el('qualification-month');
+// An older cached HTML page may load a new JS asset during a Pages rollout.
+if(qualificationMonthInput){
+  qualificationMonthInput.value=today.slice(0,7);qualificationMonthInput.max=today.slice(0,7);
+  qualificationMonthInput.onchange=loadQualifications;
+  if(el('qualification-refresh'))el('qualification-refresh').onclick=loadQualifications;
+}
+const monthTitle=value=>new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric',timeZone:'Europe/Moscow'}).format(new Date(value+'-01T12:00:00Z'));
+async function loadQualifications(){
+  if(!adminView||!qualificationMonthInput||!el('qualification-list')||!el('qualification-status'))return;
+  const month=el('qualification-month').value,generation=++qualificationGeneration;
+  qualificationFresh=false;renderQualifications();el('qualification-status').textContent='Загружаю квалификацию…';
+  try{
+    if(!/^\d{4}-\d{2}$/.test(month)||month<'2026-10'||month>today.slice(0,7))throw new Error('Выберите месяц с октября 2026 до текущего.');
+    const data=await adminRequestData('',{view:'qualification',month});
+    if(generation!==qualificationGeneration)return;
+    if(data.supported!==true)throw new Error(data.message||'Подключите Apps Script V30 и выполните tgInstallQualifications.');
+    if(data.month!==month||!Array.isArray(data.entries)||data.entries.length!==staff.length||
+      new Set(data.entries.map(r=>r.name)).size!==staff.length||data.entries.some(r=>!staff.includes(r.name))||!Array.isArray(data.levels))
+      throw new Error('Ответ квалификации неполный. Обновите список.');
+    qualificationData=data;qualificationFresh=true;renderQualifications();
+    const assigned=data.entries.filter(r=>r.level).length;
+    el('qualification-status').textContent=monthTitle(month)+': назначено '+assigned+' из '+staff.length+'. Уровни действуют только на выбранный календарный месяц.';
+  }catch(error){if(generation===qualificationGeneration){
+    el('qualification-status').textContent=error.message+' Назначение недоступно до успешного подключения и обновления.';
+    renderQualifications();
+  }}
+}
+function renderQualifications(){
+  const root=el('qualification-list');root.replaceChildren();
+  if(!qualificationData||qualificationData.month!==el('qualification-month').value)return;
+  const data=qualificationData;
+  for(const r of data.entries){
+    const card=node('article',null,'worker-card qualification-card');card.append(node('h3',r.name));
+    card.append(node('p',r.level?'Уровень '+r.level+' · '+rubles(r.amount)+' за месяц':'На этот месяц квалификация ещё не назначена.'));
+    if(r.week)card.append(node('p','Доплата один раз в расчёте недели с '+shortDate(r.week)+'.','worker-pay-detail'));
+    if(r.problem)card.append(node('p',r.problem,'admin-warning'));
+    const form=node('form',null,'qualification-form');
+    const level=field(form,'Квалификация на '+monthTitle(data.month),'select',r.level,['','I','II','III','IV','V']);
+    const criteria=node('p','','qualification-criteria');
+    const updateCriteria=()=>{const selected=data.levels.find(x=>x.level===level.value);criteria.textContent=selected?selected.title+' · '+rubles(selected.amount)+'/месяц. '+selected.criteria:'Выберите уровень по подтверждённым навыкам сборщика.'};
+    level.onchange=()=>{confirmation.classList.add('hide');updateCriteria()};
+    updateCriteria();form.append(criteria);
+    const reason=field(form,'Основание назначения','textarea',r.reason||'Назначено Андреем за '+monthTitle(data.month));reason.maxLength=600;
+    const save=node('button','Сохранить на месяц');save.type='button';save.disabled=!qualificationFresh||!r.canEdit;
+    const feedback=node('p','','qualification-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+    const confirmation=node('div',null,'bonus-confirm hide'),summary=node('p',''),buttons=node('div',null,'bonus-actions');
+    const confirm=node('button','Подтвердить назначение');confirm.type='button';const back=node('button','Изменить');back.type='button';
+    buttons.append(confirm,back);confirmation.append(summary,buttons);form.append(save,feedback,confirmation);card.append(form);root.append(card);
+    let prepared=null,sending=false;
+    const report=message=>{qualificationDecisionStatus=feedback;approvalFeedback(message,'adminQualification')};
+    form.onsubmit=e=>e.preventDefault();
+    reason.oninput=()=>{prepared=null;confirmation.classList.add('hide')};
+    back.onclick=()=>{prepared=null;confirmation.classList.add('hide')};
+    save.onclick=()=>{
+      if(!qualificationFresh||qualificationData.month!==data.month){report('Сначала обновите квалификацию за этот месяц.');return}
+      if(mutationPending){report('Дождитесь подтверждения предыдущего решения или нажмите «Проверить решение».');return}
+      const chosen=data.levels.find(x=>x.level===level.value),explanation=reason.value.trim();
+      if(!chosen){report('Выберите уровень I–V.');level.focus();return}
+      if(!explanation||explanation.length>600){report('Укажите основание назначения, до 600 символов.');reason.focus();return}
+      prepared={version:1,type:'adminQualification',month:data.month,name:r.name,level:chosen.level,rev:r.rev,reason:explanation};
+      summary.textContent=r.name+' · '+monthTitle(data.month)+': уровень '+chosen.level+', '+rubles(chosen.amount)+' за весь месяц. Доплата будет учтена один раз; начисления и последующие остатки пересчитаются. На следующий месяц уровень не переносится.';
+      hideInputKeyboard();confirmation.classList.remove('hide');report('Проверьте назначение и подтвердите его ниже.');
+    };
+    confirm.onclick=async()=>{
+      if(sending||!prepared)return;
+      if(!qualificationFresh||qualificationData.month!==data.month){report('Данные обновились. Откройте назначение заново.');return}
+      if(mutationPending){report('Дождитесь подтверждения предыдущего решения.');return}
+      sending=true;confirm.disabled=back.disabled=save.disabled=true;qualificationDecisionStatus=feedback;
+      try{await sendApproval(prepared)}catch(error){report(error.message)}
+      finally{sending=false;confirm.disabled=back.disabled=false;save.disabled=!qualificationFresh||!r.canEdit}
+    };
+    const check=node('button','Проверить решение');check.type='button';check.onclick=()=>{qualificationDecisionStatus=feedback;if(approvalPending)void checkApproval();else report('Неподтверждённого решения нет. Сохраните выбранный уровень.')};form.append(check);
+  }
 }
 if(workerView)loadWorker();
 })();

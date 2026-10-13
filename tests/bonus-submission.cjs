@@ -1,6 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),crypto=require('crypto');
 const source=fs.readFileSync(__dirname+'/../app.js','utf8');
-const moduleCode=source.slice(source.indexOf('// Decisions stay in the WebView.'),source.indexOf('if(workerView)loadWorker();'));
+const moduleCode=source.slice(source.indexOf('// Decisions stay in the WebView.'),source.indexOf('// Owner-only monthly assignments.'));
 class Element{
  constructor(tag,text='',klass=''){this.tag=tag;this.textContent=text;this.className=klass;this.children=[];this.value='';this.disabled=false;this.attrs={};this.classes=new Set(klass.split(' '));this.classList={add:c=>this.classes.add(c),remove:c=>this.classes.delete(c),contains:c=>this.classes.has(c)}}
  append(...nodes){this.children.push(...nodes)} replaceChildren(...nodes){this.children=nodes} remove(){this.removed=true} focus(){this.focused=true} setAttribute(k,v){this.attrs[k]=v}
