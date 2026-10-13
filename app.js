@@ -145,6 +145,7 @@ const adminEndpoint=
   'https://script.google.com/macros/s/AKfycbz2ZOC_Pibu90pl6edNIMf0krFJKy_3HPj7MreiDk39psF5gsUtQoW4FCSWEUa3VSBz/exec';
 const adminActionToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminAction')||'';
 const adminReadToken=new URLSearchParams((location.hash||'').replace(/^#/, '')).get('adminRead')||'';
+let adminUseInitData=false,accessRefreshSent=false;
 const startWeek=()=>{
   const d=new Date(today+'T12:00:00Z');
   d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));
@@ -209,6 +210,32 @@ function adminStatus(value){
 }
 let adminData=null,adminRequest=0,adminLoadedWeek='',adminDataFresh=false;
 function transientAdminError(message){const error=new Error(message);error.retryable=true;return error}
+function accessError(message){
+  const error=new Error(message);error.accessExpired=true;return error;
+}
+function showAccessRecovery(error){
+  if(typeof adminView==='undefined'||!adminView||typeof el!=='function')return;
+  if(error?.accessExpired){
+    el('admin-access-recovery').classList.remove('hide');
+    el('admin-access-message').textContent='Доступ истёк. Нажмите «Обновить доступ», дождитесь ответа бота и откройте новую кнопку «Личный кабинет». Простое повторное открытие старой кнопки не обновляет доступ.';
+  }else if(!error){el('admin-access-recovery').classList.add('hide')}
+}
+function refreshAdminAccess(){
+  if(!adminView||accessRefreshSent)return;
+  if(!tg||typeof tg.sendData!=='function'||tg.platform==='unknown'){
+    el('admin-access-message').textContent='Откройте личный чат с ботом, отправьте /menu и нажмите новую кнопку «Личный кабинет».';return;
+  }
+  accessRefreshSent=true;el('admin-renew-access').disabled=true;
+  el('admin-access-message').textContent='Запрашиваю новую кнопку. После ответа бота откройте «Личный кабинет» заново. Текущие неподтверждённые решения сохранятся.';
+  try{
+    // Existing read-only bot command renews the verified private-chat keyboard.
+    // It never submits an approval and does not clear the pending receipt.
+    tg.sendData(JSON.stringify({version:1,type:'adminAccounting'}));
+  }catch(_){
+    accessRefreshSent=false;el('admin-renew-access').disabled=false;
+    el('admin-access-message').textContent='Не удалось запросить доступ. Отправьте /menu в личном чате с ботом.';
+  }
+}
 function adminRequestOnce(week,extra,authKey,authToken){
   return new Promise((resolve,reject)=>{
     const callback='__tgAdm_'+Math.random().toString(36).slice(2,14);
@@ -225,7 +252,11 @@ function adminRequestOnce(week,extra,authKey,authToken){
       delete window[callback];script.remove();
       error?reject(error):resolve(data);
     }
-    window[callback]=r=>r?.ok?finish(null,r.data):finish(new Error(r?.message||'Нет ответа сервера.'));
+    window[callback]=r=>{
+      if(r?.ok){finish(null,r.data);return}
+      const message=r?.message||'Нет ответа сервера.';
+      finish(/Сессия.*истекла|Нет сессии просмотра|Нет личного ключа|Обновите кнопку|Нет initData/i.test(message)?accessError(message):new Error(message));
+    };
     script.onerror=()=>finish(transientAdminError('Ответ не дошёл до приложения. Проверьте соединение и повторите обновление.'));
     script.onload=()=>{if(!done)finish(transientAdminError('Приложение не получило ответ. Повторите обновление.'))};
     timeout=setTimeout(()=>finish(transientAdminError('Ответ не получен вовремя. Проверьте соединение и повторите обновление.')),25000);
@@ -238,12 +269,21 @@ async function adminRequestData(week,extra={},onRetry,worker=false){
   if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(adminEndpoint))
     throw new Error('Обновите веб-приложение Apps Script и снова откройте кабинет кнопкой бота.');
   if(!worker&&!adminReadToken&&!tg?.initData)
-    throw new Error('Обновите кнопку: отправьте боту /menu и откройте новый «Личный кабинет».');
-  const authKey=worker?'workerRead':adminReadToken?'readToken':'initData';
-  const authToken=worker?workerReadToken:adminReadToken||tg.initData;
+    {const error=accessError('Доступ не подключён. Нажмите «Обновить доступ» и откройте новую кнопку кабинета.');showAccessRecovery(error);throw error}
+  const signed=!worker&&adminUseInitData&&tg?.initData;
+  const authKey=worker?'workerRead':signed?'initData':adminReadToken?'readToken':'initData';
+  const authToken=worker?workerReadToken:signed?tg.initData:adminReadToken||tg.initData;
   for(let attempt=0;attempt<2;attempt++){
-    try{return await adminRequestOnce(week,extra,authKey,authToken)}
-    catch(error){if(!error.retryable||attempt===1)throw error;onRetry?.()}
+    try{const data=await adminRequestOnce(week,extra,authKey,authToken);if(!worker)showAccessRecovery(null);return data}
+    catch(error){
+      if(!worker&&error.accessExpired&&authKey==='readToken'&&tg?.initData){
+        try{
+          const data=await adminRequestOnce(week,extra,'initData',tg.initData);
+          adminUseInitData=true;showAccessRecovery(null);return data;
+        }catch(fallback){error=fallback}
+      }
+      if(!error.retryable||attempt===1){if(!worker)showAccessRecovery(error);throw error}onRetry?.()
+    }
   }
 }
 let workerData=null,workerLoading=false,workerFetchedAt=0,workerDataFresh=false;
@@ -539,6 +579,7 @@ async function loadAdmin(){
   }}
 }
 el('admin-refresh').onclick=loadAdmin;
+el('admin-renew-access').onclick=refreshAdminAccess;
 el('admin-week').onchange=loadAdmin;
 function adminCard(root,title,details,edit){
   const box=node('div',null,'admin-card');
@@ -720,7 +761,7 @@ function renderAdmin(){
   const accountingProblems=allAssembly.filter(accountingIssue).length;
   el('admin-queue-summary').textContent='Ожидают приёмки: '+pending+' · На переделке: '+rework+
     ' · Расхождения: '+mismatches+' · Ошибки расчёта: '+accountingProblems;
-  el('admin-queue-result').textContent='Показано '+assembly.length+' из '+allAssembly.length+' заявок за неделю';
+  el('admin-queue-result').textContent='Показано '+assembly.length+' из '+allAssembly.length+' заявок за выбранную неделю. Непринятые заявки прошлых недель смотрите по их дате сдачи.';
   if(!assembly.length)a.append(node('p',allAssembly.length?'По выбранным фильтрам заявок нет.':'За выбранную неделю сборки не найдены.'));
   if(!attendance.length)t.append(node('p','За выбранную неделю отметок нет.'));
   const checks=(adminData?.checks||[]).filter(message=>!message.startsWith('Проверьте возможный повтор изделия:'));
@@ -835,7 +876,8 @@ function approvalRequestId(){
   return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 }
 function postApproval(pending){
-  const auth=adminActionToken?{actionToken:adminActionToken}:{initData:tg?.initData||''};
+  const signed=typeof adminUseInitData!=='undefined'&&adminUseInitData&&tg?.initData;
+  const auth=signed?{initData:tg.initData}:adminActionToken?{actionToken:adminActionToken}:{initData:tg?.initData||''};
   // No secrets in query strings; text/plain needs no cross-origin preflight.
   // Google redirects its response, which is opaque. Only the signed read confirms it.
   void fetch(adminEndpoint,{method:'POST',mode:'no-cors',credentials:'omit',referrerPolicy:'no-referrer',

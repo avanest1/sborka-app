@@ -139,6 +139,7 @@
         <div class="admin-tools"><label for="admin-week">Дата внутри нужной недели<input id="admin-week" type="date" min="2026-09-14"></label><button id="admin-refresh" type="button">Обновить</button></div>
         <p class="admin-warning">Приёмка обновляет оба журнала и начисление. Дождитесь подтверждения бота, затем обновите список.</p>
         <p id="admin-period"></p><p id="admin-action-status" class="worker-status" role="status" aria-live="polite"></p><button id="admin-action-check" class="hide" type="button">Проверить решение</button><div id="admin-status" role="status"></div>
+        <div id="admin-access-recovery" class="admin-access-recovery hide"><p id="admin-access-message" role="status"></p><button id="admin-renew-access" type="button">Обновить доступ</button></div>
         <div id="admin-checks" role="status"></div>
         <div id="bonus-section" class="hide">
           <h3 class="admin-group">Просьбы о надбавке · все недели</h3>
@@ -147,6 +148,7 @@
           <p id="bonus-status" role="status"></p><div id="bonus-list"></div>
         </div>
         <h3 class="admin-group">Очередь приёмки</h3>
+        <p class="admin-warning">Здесь заявки только за выбранную неделю. Если изделие сдано раньше, выберите дату той недели выше.</p>
         <div id="admin-queue-summary" class="admin-queue-summary" role="status">Загрузите неделю, чтобы увидеть очередь приёмки.</div>
         <div class="admin-queue-filters">
           <label for="admin-filter-status">Статус<select id="admin-filter-status"><option value="attention">Требуют решения</option><option value="Ожидает приёмки">Ожидает приёмки</option><option value="Своя переделка">На переделке</option><option value="Принято">Принято</option><option value="all">Все</option></select></label>
@@ -189,7 +191,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 28</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 29</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

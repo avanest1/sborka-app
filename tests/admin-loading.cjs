@@ -18,7 +18,7 @@ const document={
 };
 const adminRequestData=vm.runInNewContext(transport+';adminRequestData',{
   adminEndpoint:'https://script.google.com/macros/s/AKfycb-test/exec',
-  adminReadToken:'test-token',workerReadToken:'',tg:null,document,window:callbacks,URL,URLSearchParams,
+  adminReadToken:'test-token',adminUseInitData:false,workerReadToken:'',tg:null,document,window:callbacks,URL,URLSearchParams,
   setTimeout,clearTimeout,Math,Error,
 });
 
