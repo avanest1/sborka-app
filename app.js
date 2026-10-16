@@ -106,6 +106,7 @@ function loadingForm(){
 }
 el('work-kind').onchange=loadingForm;el('product').onchange=loadingForm;
 function send(payload){
+  if(typeof premiumBulkRunning!=='undefined'&&premiumBulkRunning){notice('Обработка выбранных премий ещё выполняется. Дождитесь результата.');return}
   if(mutationPending){notice('Предыдущее решение ещё не подтверждено. Дождитесь результата или нажмите «Проверить решение».');return}
   if(!tg||typeof tg.sendData!=='function'){notice('Не загрузилось соединение с Telegram. Откройте кабинет заново кнопкой бота.');return}
   if(tg.platform==='unknown'){notice('Откройте приложение через кнопку «Личный кабинет» в чате с ботом.');return}
@@ -1017,7 +1018,7 @@ async function checkApproval(){
         await refreshDecisionViews(type);
         approvalFeedback(message,type);
         if(result.state==='done'&&type==='adminAcceptSelection')void watchBulkDecision(pending.id);
-        return;
+        return {state:result.state,message:result.message};
       }
       if(result.state==='unknown'&&sends<3&&(adminActionToken||tg?.initData)){
         postApproval(pending);sends++;
@@ -1030,7 +1031,8 @@ async function checkApproval(){
   }catch(error){approvalFeedback(error.message+' Решение пока не подтверждено: нажмите «Проверить решение».')}
   finally{approvalChecking=false;el('admin-action-check').disabled=false}
 }
-async function sendApproval(payload){
+async function sendApproval(payload,fromPremiumBatch=false){
+  if(premiumBulkRunning&&!fromPremiumBatch){approvalFeedback('Обработка выбранных премий ещё выполняется. Дождитесь результата.',payload.type);return}
   if(mutationPending){approvalFeedback('Предыдущее решение ещё не подтверждено. Нажмите «Проверить решение» и дождитесь результата.',payload.type);return}
   if(!adminActionToken&&!tg?.initData){approvalFeedback('Обновите кнопку кабинета после установки Apps Script V27: запустите tgEnableKeepOpen или отправьте /menu один раз. Решение не отправлено.',payload.type);return}
   if(new TextEncoder().encode(JSON.stringify(payload)).length>4096){approvalFeedback('Решение слишком длинное. Сократите комментарий.',payload.type);return}
@@ -1042,7 +1044,7 @@ async function sendApproval(payload){
     if(ready.supported!==true)throw new Error('Для сохранения без закрытия установите Apps Script V27 и обновите развёртывание.');
     approvalPending={id,payload};rememberApproval(approvalPending);
     el('admin-action-check').classList.remove('hide');approvalFeedback('Отправляю решение…');
-    await checkApproval();
+    return await checkApproval();
   }catch(error){
     if(!approvalPending){mutationPending=false;bulkSelectionStatus()}
     approvalFeedback(error.message,payload.type);
@@ -1062,6 +1064,67 @@ if(adminView)setTimeout(resumeApproval,0);
 
 // Bonus requests have their own freshness and include all weeks.
 let bonusData=null,bonusDataFresh=false,bonusGeneration=0;
+const selectedPremiums=new Map();
+let premiumBulkRunning=false;
+function premiumAmountValid(amount){
+  return typeof amount==='number'&&Number.isFinite(amount)&&amount>0&&amount<=1000000&&Math.abs(amount*100-Math.round(amount*100))<0.000001;
+}
+function premiumSelectable(r){return r?.premium===true&&r.canDecide&&r.decision==='На рассмотрении'&&premiumAmountValid(r.requestedAmount)}
+function premiumSelectionStatus(){
+  const count=selectedPremiums.size,cents=[...selectedPremiums.values()].reduce((s,r)=>s+Math.round(r.requestedAmount*100),0);
+  el('premium-bulk-count').textContent='Выбрано: '+count+' · сумма '+rubles(cents/100);
+  for(const id of ['premium-bulk-approve','premium-bulk-decline'])el(id).disabled=!count||!bonusDataFresh||mutationPending||premiumBulkRunning;
+  el('premium-select-all').disabled=!bonusDataFresh||mutationPending||premiumBulkRunning;
+  el('premium-clear-selection').disabled=premiumBulkRunning||!count;
+  el('bonus-refresh').disabled=premiumBulkRunning;el('bonus-filter').disabled=premiumBulkRunning;
+}
+el('premium-select-all').onclick=()=>{
+  if(!bonusDataFresh||premiumBulkRunning||mutationPending)return;
+  for(const r of bonusData?.entries||[])if(premiumSelectable(r))selectedPremiums.set(r.key,{...r});
+  renderBonuses();
+};
+el('premium-clear-selection').onclick=()=>{if(premiumBulkRunning)return;selectedPremiums.clear();renderBonuses()};
+function premiumBatchRecord(old,entries,decision){
+  const r=entries.find(r=>r.key===old.key);
+  if(!r||!r.premium||r.link!==old.link)return {error:'Запрос удалён или заменён.'};
+  if(['name','date','order','request','requestedAmount'].some(k=>r[k]!==old[k]))return {error:'Данные запроса изменились. Пересмотрите его отдельно.'};
+  if(r.decision===decision&&(decision==='Одобрено'?r.amount===old.requestedAmount&&r.payBonus===old.requestedAmount:r.amount===0&&r.payBonus===0))return {already:true};
+  if(r.rev!==old.rev||!premiumSelectable(r))return {error:'Решение или расчёт изменились. Обновите запрос.'};
+  return {record:r};
+}
+async function decideSelectedPremiums(decision){
+  if(premiumBulkRunning||mutationPending||!bonusDataFresh||!selectedPremiums.size)return;
+  const chosen=[...selectedPremiums.values()];
+  premiumBulkRunning=true;premiumSelectionStatus();
+  const status=el('premium-bulk-status'),errors=[];let completed=0,already=0,attempted=0,stopped=false;
+  const progress=()=>{status.textContent='Обработано: '+attempted+' из '+chosen.length+'. '+(decision==='Одобрено'?'Одобрено':'Отклонено')+': '+completed+'. Уже выполнено: '+already+'. Требует проверки: '+errors.length+'. Не закрывайте приложение до завершения.'};
+  try{
+    progress();await loadBonuses();
+    if(!bonusDataFresh||!Array.isArray(bonusData?.entries))throw Error('Список не обновился. Решения не отправлены.');
+    const seen=new Set();for(const r of bonusData.entries){if(seen.has(r.key))throw Error('В списке повторяется запрос. Проверьте данные.');seen.add(r.key)}
+    for(const old of chosen){
+      if(!bonusDataFresh)throw Error('Не удалось подтвердить свежий список. Обработка остановлена.');
+      const check=premiumBatchRecord(old,bonusData.entries,decision);
+      if(check.error){errors.push(old.name+': '+check.error);attempted++;selectedPremiums.delete(old.key);progress();continue}
+      if(check.already){already++;attempted++;selectedPremiums.delete(old.key);progress();continue}
+      const r=check.record;
+      const payload={version:1,type:'adminBonusDecision',key:r.key,link:r.link,rev:r.rev,decision,
+        amount:decision==='Одобрено'?r.requestedAmount:0,
+        reason:decision==='Одобрено'?String(r.reasonDefault||r.request).slice(0,600):'Отклонено руководителем'};
+      bonusDecisionStatus=null;
+      const result=await sendApproval(payload,true);
+      if(!result||!['done','failed'].includes(result.state)||mutationPending){
+        stopped=true;status.textContent='Обработка приостановлена: решение ещё не подтверждено или не отправлено. '+completed+' выполнено, осталось '+selectedPremiums.size+'. Нажмите «Проверить решение», если кнопка показана, затем обновите список и повторите выбор. Повторного начисления не будет.';break;
+      }
+      if(result.state==='done')completed++;else errors.push(r.name+': '+String(result.message||'Решение не применено.'));
+      attempted++;selectedPremiums.delete(old.key);progress();
+    }
+    if(!stopped)status.textContent='Готово. '+(decision==='Одобрено'?'Одобрено':'Отклонено')+': '+completed+'. Уже выполнено: '+already+'. Требует проверки: '+errors.length+'.'+(errors.length?'\n'+errors.join('\n'):'');
+  }catch(e){status.textContent='Обработка остановлена. Выполнено: '+completed+'. '+e.message+(errors.length?'\n'+errors.join('\n'):'')}
+  finally{premiumBulkRunning=false;renderBonuses()}
+}
+el('premium-bulk-approve').onclick=()=>decideSelectedPremiums('Одобрено');
+el('premium-bulk-decline').onclick=()=>decideSelectedPremiums('Отклонено');
 el('bonus-refresh').onclick=loadBonuses;
 el('bonus-filter').onchange=renderBonuses;
 async function loadBonuses(){
@@ -1081,12 +1144,19 @@ async function loadBonuses(){
   }}
 }
 function renderBonuses(){
+  premiumSelectionStatus();
   const root=el('bonus-list');root.replaceChildren();
   if(!bonusData)return;
   const entries=(bonusData.entries||[]).filter(r=>el('bonus-filter').value==='all'||r.decision==='На рассмотрении');
   if(!entries.length){root.append(node('p','Просьб на рассмотрении нет.'));return}
   for(const r of entries){
     const card=node('article',null,'admin-card bonus-record');
+    if(premiumSelectable(r)){
+      const label=node('label',null,'admin-select'),box=node('input');box.type='checkbox';box.checked=selectedPremiums.has(r.key);
+      box.disabled=!bonusDataFresh||premiumBulkRunning||mutationPending;
+      box.onchange=()=>{if(!bonusDataFresh||premiumBulkRunning||mutationPending)return;box.checked?selectedPremiums.set(r.key,{...r}):selectedPremiums.delete(r.key);premiumSelectionStatus()};
+      label.append(box,node('span','Выбрать премию'));card.append(label);
+    }
     card.append(node('h4',r.name+' · '+r.product+(r.premium?'':' × '+r.qty)));
     card.append(node('p',shortDate(r.date)+(r.order?' · Заказ № '+r.order:' · Без номера заказа')+' · '+r.status));
     card.append(node('p',r.request,'bonus-request'));
@@ -1100,9 +1170,9 @@ function renderBonuses(){
       const decline=node('button','Отклонить');decline.type='button';decline.className='bonus-decline';
       const feedback=node('p','','bonus-action-status');feedback.setAttribute('role','status');
       for(const [button,decision] of [[approve,'Одобрено'],[decline,'Отклонено']]){
-        button.disabled=!bonusDataFresh||!r.canDecide||mutationPending;
+        button.disabled=!bonusDataFresh||!r.canDecide||mutationPending||premiumBulkRunning;
         button.onclick=()=>{
-          if(!bonusDataFresh||!r.canDecide||mutationPending)return;
+          if(!bonusDataFresh||!r.canDecide||mutationPending||premiumBulkRunning)return;
           const amount=decision==='Одобрено'?Number(r.requestedAmount):0;
           if(decision==='Одобрено'&&(!Number.isFinite(amount)||amount<=0||amount>1000000))return;
           const reason=decision==='Одобрено'?String(r.reasonDefault||r.request).slice(0,600):'Отклонено руководителем';
@@ -1113,13 +1183,13 @@ function renderBonuses(){
       actions.append(approve,decline);card.append(actions,feedback);
     }
     const edit=node('button',r.decision==='На рассмотрении'?'Рассмотреть просьбу':'Изменить решение');edit.type='button';
-    edit.disabled=!bonusDataFresh||!r.canDecide;card.append(edit);
+    edit.disabled=!bonusDataFresh||!r.canDecide||premiumBulkRunning;card.append(edit);
     edit.onclick=()=>editBonus(card,r,edit);
     root.append(card);
   }
 }
 function editBonus(card,r,button){
-  if(!bonusDataFresh||!r.canDecide)return;
+  if(!bonusDataFresh||!r.canDecide||premiumBulkRunning)return;
   button.disabled=true;
   const form=node('form',null,'bonus-form');
   // Text + decimal keyboard accepts both comma and dot on mobile. Validate explicitly.

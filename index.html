@@ -145,6 +145,13 @@
           <h3 class="admin-group">Надбавки и премии · все недели</h3>
           <p>Согласуйте сумму за всю заявку или отклоните просьбу. Одобренная надбавка начисляется после приёмки изделия.</p>
           <div class="admin-tools"><label for="bonus-filter">Показывать<select id="bonus-filter"><option value="pending">На рассмотрении</option><option value="all">Все решения</option></select></label><button id="bonus-refresh" type="button">Обновить надбавки</button></div>
+          <div class="premium-bulk-tools">
+            <strong>Выбрать несколько премий</strong>
+            <p id="premium-bulk-count">Выбрано: 0 · сумма 0 ₽</p>
+            <div class="bonus-actions"><button id="premium-select-all" type="button">Выбрать все премии</button><button id="premium-clear-selection" type="button">Снять выбор</button></div>
+            <div class="bonus-actions"><button id="premium-bulk-approve" type="button" disabled>Одобрить выбранные</button><button id="premium-bulk-decline" class="bonus-decline" type="button" disabled>Отклонить выбранные</button></div>
+            <p id="premium-bulk-status" role="status" aria-live="polite">Каждому сотруднику начислится сумма из его запроса. Надбавки за изделия рассматриваются отдельно.</p>
+          </div>
           <p id="bonus-status" role="status"></p><div id="bonus-list"></div>
         </div>
         <h3 class="admin-group">Очередь приёмки</h3>
@@ -192,7 +199,7 @@
         </form>
       </section>
       <div id="message" class="hide notice" role="status"></div>
-      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 33</footer>
+      <footer>Имя на экране — для удобства. При записи бот проверяет ваш Telegram ID.<br>Версия 33.1</footer>
     </div>
   </main>
   <div class="settings-overlay hide" id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">

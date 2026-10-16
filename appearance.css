@@ -292,6 +292,11 @@ body.settings-open { overflow: hidden; }
 #admin .bonus-record { background: var(--surface); color: var(--ink); border-color: var(--line); }
 #admin .bonus-actions button { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--line); margin: 0; }
 #admin .bonus-actions .bonus-decline { background: var(--surface-soft); color: var(--ink); }
+#admin .premium-bulk-tools { padding: 14px; margin: 14px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
+#admin .premium-bulk-tools .bonus-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+#admin .premium-bulk-tools button { min-width: 0; min-height: 46px; padding: 10px; white-space: normal; overflow-wrap: anywhere; }
+#admin .premium-bulk-tools button:disabled { opacity: .45; }
+#admin #premium-bulk-status { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
 #admin .admin-bulk { flex-wrap: wrap; }
 #admin .admin-bulk button { flex: 1 1 140px; min-width: 0; white-space: normal; }
 #admin #admin-bulk-count { flex: 1 1 140px; }
