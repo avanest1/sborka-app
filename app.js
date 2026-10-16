@@ -88,14 +88,19 @@ function assemblyNote(){
 }
 let mutationPending=false,repeatSource=null;
 function loadingForm(){
-  const loading=el('work-kind').value==='Загрузка машины',table=!loading&&el('product').value==='Стол';
-  for(const id of ['product','qty','period']){el(id).disabled=loading;el(id).classList.toggle('hide',loading)}
-  for(const id of ['product','period'])document.querySelector('label[for="'+id+'"]').classList.toggle('hide',loading);
-  el('ordinary').classList.toggle('hide',loading||table);el('table-parts').classList.toggle('hide',!table);
-  el('product').required=!loading;el('qty').required=!loading&&!table;
-  el('order').required=!loading;el('loading-hint').classList.toggle('hide',!loading);
-  document.querySelector('label[for="order"]').textContent=loading?'№ заказа (необязательно)':'№ заказа';
-  el('assembly-photo-hint').textContent=loading?'700 ₽ каждому участнику после приёмки. Фото необязательно.':'Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия в этот чат.';
+  const loading=el('work-kind').value==='Загрузка машины',premium=el('work-kind').value==='Премия',simple=loading||premium,table=!simple&&el('product').value==='Стол';
+  for(const id of ['product','qty','period']){el(id).disabled=simple;el(id).classList.toggle('hide',simple)}
+  for(const id of ['product','period'])document.querySelector('label[for="'+id+'"]').classList.toggle('hide',simple);
+  el('ordinary').classList.toggle('hide',simple||table);el('table-parts').classList.toggle('hide',!table);
+  for(let i=0;i<7;i++){const input=el('part-'+i);if(input)input.disabled=simple||!table}
+  el('product').required=!simple;el('qty').required=!simple&&!table;
+  el('order').required=!simple;el('loading-hint').classList.toggle('hide',!loading);
+  el('note').required=premium;
+  document.querySelector('label[for="note"]').textContent=premium?'Запрос надбавки (обязательно)':'Запрос надбавки (необязательно)';
+  document.querySelector('label[for="order"]').textContent=simple?'№ заказа (необязательно)':'№ заказа';
+  const submit=document.querySelector('#assembly-form button[type="submit"]');
+  if(submit)submit.textContent=premium?'Отправить запрос премии':'Отправить на приёмку →';
+  el('assembly-photo-hint').textContent=premium?'Опишите, за что просите премию; сумму можно указать в тексте. Руководитель согласует её отдельно. Изделие и фото не требуются.':loading?'700 ₽ каждому участнику после приёмки. Фото необязательно.':'Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия в этот чат.';
 }
 el('work-kind').onchange=loadingForm;el('product').onchange=loadingForm;
 function send(payload){
@@ -120,9 +125,24 @@ function send(payload){
 }
 el('arrive').onclick=()=>send({version:1,type:'arrive'});
 el('leave').onclick=()=>send({version:1,type:'leave'});
-el('assembly-form').onsubmit=e=>{
-  e.preventDefault();if(mutationPending)return;
+let premiumPreparing=false;
+el('assembly-form').onsubmit=async e=>{
+  e.preventDefault();if(mutationPending||premiumPreparing)return;
   if(!e.currentTarget.reportValidity())return;
+  if(el('work-kind').value==='Премия'){
+    const request=el('note').value.trim();
+    if(!request){notice('Опишите, за что просите премию.');el('note').focus();return}
+    const payload={version:1,type:'premium',date:el('date').value,order:el('order').value.trim(),request,
+      problem:el('problem').value.trim(),responsible:el('responsible').value.trim()};
+    premiumPreparing=true;
+    try{
+      const ready=await adminRequestData('',{view:'premiumStatus'},undefined,workerView);
+      if(ready.supported!==true)throw new Error('Премии ещё не подключены. Руководителю нужно установить Apps Script V32 и выполнить tgInstallPremiums.');
+      send(payload);
+    }catch(error){notice('Премия не отправлена. '+error.message)}
+    finally{premiumPreparing=false}
+    return;
+  }
   const loading=el('work-kind').value==='Загрузка машины';
   const product=loading?'Загрузка машины':el('product').value,table=product==='Стол';
   const qty=Number(el('qty').value),tableParts=parts.map((_,i)=>Number(el('part-'+i).value));
@@ -354,6 +374,13 @@ function renderWorker(){
     if(r.photo)addPhotoButton(card,r,true);
     addRepeatButton(card,r);
     list.append(card);
+  }
+  for(const r of data.premiums||[]){
+    const card=node('article',null,'worker-card');
+    card.append(node('strong','Премия'),node('small',shortDate(r.date)+(r.order?' · заказ № '+r.order:'')),
+      node('p',r.request),node('span',r.decision,'worker-badge'));
+    if(r.decision==='Одобрено')card.append(node('p','Начислено: '+rubles(r.amount)));
+    if(r.reason)card.append(node('p',r.reason));list.append(card);
   }
   el('earnings-week').textContent='Неделя '+shortDate(data.week)+' — '+shortDate(data.weekEnd);
   const pay=data.payroll||{};
@@ -1044,8 +1071,8 @@ function renderBonuses(){
   if(!entries.length){root.append(node('p','Просьб на рассмотрении нет.'));return}
   for(const r of entries){
     const card=node('article',null,'admin-card bonus-record');
-    card.append(node('h4',r.name+' · '+r.product+' × '+r.qty));
-    card.append(node('p',shortDate(r.date)+' · Заказ № '+r.order+' · '+r.status));
+    card.append(node('h4',r.name+' · '+r.product+(r.premium?'':' × '+r.qty)));
+    card.append(node('p',shortDate(r.date)+(r.order?' · Заказ № '+r.order:' · Без номера заказа')+' · '+r.status));
     card.append(node('p',r.request,'bonus-request'));
     card.append(node('p',r.decision+(Number(r.amount)>0?' · '+rubles(r.amount):'')));
     if(r.result)card.append(node('p',r.result,'admin-warning'));
@@ -1065,7 +1092,7 @@ function editBonus(card,r,button){
   amount.inputMode='decimal';amount.maxLength=12;amount.autocomplete='off';
   const reason=field(form,'Основание решения','textarea',String(r.reason||r.request).replace(/^Отказ:\s*/i,'').slice(0,600));
   reason.required=true;reason.maxLength=600;
-  const hint=node('p','Сумма из просьбы - подсказка. Проверьте её: она не должна повторять оплату элементов стола.','admin-warning');form.append(hint);
+  const hint=node('p',r.premium?'Одобренная сумма премии попадёт в зарплату за неделю даты заявки. Изделие принимать не требуется.':'Сумма из просьбы - подсказка. Проверьте её: она не должна повторять оплату элементов стола.','admin-warning');form.append(hint);
   const actions=node('div',null,'bonus-actions');
   const approve=node('button','Одобрить');approve.type='button';
   const decline=node('button','Отклонить');decline.type='button';decline.className='bonus-decline';

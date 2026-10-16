@@ -4,7 +4,7 @@ const html=fs.readFileSync(__dirname+'/../index.html','utf8');
 assert(app.includes("data.bonusDecisions===true)loadBonuses()"),'Old backend must not receive unsupported mutations');
 assert(app.includes("if(payload.type==='adminBonusDecision'&&!bonusDataFresh)"));
 assert(app.includes("'adminAccounting','adminBonusDecision'"),'Bonus decision must not require an employee selection');
-assert(html.includes('Просьбы о надбавке · все недели'));
+assert(html.includes('Надбавки и премии · все недели'));
 const code=app.slice(app.indexOf('let bonusData=null,'),app.indexOf('// Owner-only monthly assignments.'));
 const elements=new Map();
 function node(tag,text){return {tag,textContent:text,children:[],value:'',disabled:false,classList:{add(){},remove(){}},setAttribute(){},append(...n){this.children.push(...n)},replaceChildren(...n){this.children=n},remove(){this.removed=true},focus(){},reportValidity(){return !!this.value}}}
