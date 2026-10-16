@@ -162,10 +162,11 @@ function encodeAssemblySelection(records){
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 const selectedAssemblies=new Map();
+let bulkPreparing=false;
 function bulkSelectionStatus(){
   const count=selectedAssemblies.size;
   el('admin-bulk-count').textContent='Выбрано: '+count;
-  el('admin-bulk-accept').disabled=count<1||!adminDataFresh||mutationPending;
+  el('admin-bulk-accept').disabled=count<1||!adminDataFresh||mutationPending||bulkPreparing;
 }
 el('admin-select-all').onclick=()=>{
   if(!adminDataFresh)return;
@@ -174,18 +175,59 @@ el('admin-select-all').onclick=()=>{
   renderAdmin();
 };
 el('admin-clear-selection').onclick=()=>{selectedAssemblies.clear();renderAdmin()};
-el('admin-bulk-accept').onclick=()=>{
+// A displayed selection can outlive the server's temporary draft cache.
+// Read a NEW draft immediately before POST, keeping the exact IDs the owner confirmed.
+function reconcileBulkSelection(chosen,fresh){
+  if(!Array.isArray(fresh?.assembly))throw new Error('Не удалось проверить выбранные заявки. Обновите учёт.');
+  const byKey=new Map();
+  for(const record of fresh.assembly){
+    if(byKey.has(record.key))throw new Error('Повтор ID заявки. Приёмка не отправлена.');
+    byKey.set(record.key,record);
+  }
+  const remaining=[];let alreadyAccepted=0;
+  for(const old of chosen){
+    const record=byKey.get(old.key);
+    if(!record||record.row!==old.row||record.link!==old.link)
+      throw new Error('Выбранная заявка удалена, перемещена или заменена. Проверьте обновлённый список: приёмка не отправлена.');
+    if(record.status==='Принято'&&!record.statusMismatch){alreadyAccepted++;continue}
+    if(record.rev!==old.rev||record.statusMismatch||!['Ожидает приёмки','Своя переделка'].includes(record.status))
+      throw new Error('Одна из выбранных заявок изменилась. Проверьте обновлённый список: приёмка не отправлена.');
+    remaining.push(record);
+  }
+  return {remaining,alreadyAccepted};
+}
+el('admin-bulk-accept').onclick=async()=>{
+  if(bulkPreparing||mutationPending||!adminDataFresh)return;
   const chosen=[...selectedAssemblies.values()];
   if(!chosen.length)return;
-  if(!adminData?.bulkSelectionToken&&chosen.length>8){adminStatus('Установите Apps Script V26 и обновите учёт для приёмки всего выбора.');return}
   const summary=chosen.slice(0,12).map(r=>'• '+r.name+' · '+r.product+' × '+r.qty+
     ' · заказ № '+r.order).join('\n')+(chosen.length>12?'\nИ ещё '+(chosen.length-12)+' заявок.':'');
   if(!window.confirm('Принять '+chosen.length+' заявок и учесть их в зарплате?\n\n'+summary))return;
-  if(adminData?.bulkSelectionToken)send({version:1,type:'adminAcceptSelection',status:'Принято',
-    token:adminData.bulkSelectionToken,selection:encodeAssemblySelection(chosen)});
-  else if(chosen.length===1){const {row,key,link,rev}=chosen[0];send({version:1,type:'adminAcceptAssembly',status:'Принято',row,key,link,rev})}
-  else send({version:1,type:'adminAcceptAssemblies',status:'Принято',items:chosen.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
-  adminStatus('Приёмка отправляется. Результат появится внутри приложения.');
+  const generation=adminRequest;
+  bulkPreparing=true;adminDataFresh=false;bulkSelectionStatus();
+  adminStatus('Обновляю список и сверяю '+chosen.length+' выбранных заявок перед приёмкой…');
+  try{
+    const week=adminNormalizeWeek();
+    const fresh=await adminRequestData(week);
+    if(generation!==adminRequest||adminNormalizeWeek()!==week)
+      throw new Error('Выбранная неделя изменилась. Приёмка не отправлена.');
+    if(fresh?.week!==week||!Array.isArray(fresh.assembly)||!Array.isArray(fresh.attendance)||!Array.isArray(fresh.checks))
+      throw new Error('Сервер вернул неполный список. Приёмка не отправлена; обновите учёт.');
+    adminData=fresh;adminLoadedWeek=week;adminDataFresh=true;selectedAssemblies.clear();renderAdmin();
+    const {remaining,alreadyAccepted}=reconcileBulkSelection(chosen,fresh);
+    if(!remaining.length){adminStatus('Все '+alreadyAccepted+' выбранных заявок уже приняты. Повторного начисления нет.');return}
+    if(!fresh.bulkSelectionToken&&remaining.length>8)
+      throw new Error('Установите Apps Script V26 и обновите учёт для приёмки всего выбора.');
+    if(fresh.bulkSelectionToken&&!/^[a-f0-9]{32}$/.test(fresh.bulkSelectionToken))
+      throw new Error('Не удалось обновить подтверждение выбора. Приёмка не отправлена.');
+    remaining.forEach(r=>selectedAssemblies.set(r.key,r));renderAdmin();
+    adminStatus('Передаю '+remaining.length+' заявок на приёмку.'+(alreadyAccepted?' Уже принятых пропущено: '+alreadyAccepted+'.':'')+' Результат появится внутри приложения.');
+    if(fresh.bulkSelectionToken)send({version:1,type:'adminAcceptSelection',status:'Принято',
+      token:fresh.bulkSelectionToken,selection:encodeAssemblySelection(remaining)});
+    else if(remaining.length===1){const {row,key,link,rev}=remaining[0];send({version:1,type:'adminAcceptAssembly',status:'Принято',row,key,link,rev})}
+    else send({version:1,type:'adminAcceptAssemblies',status:'Принято',items:remaining.map(r=>({row:r.row,key:r.key,link:r.link,rev:r.rev}))});
+  }catch(error){adminStatus(error.message)}
+  finally{bulkPreparing=false;bulkSelectionStatus()}
 };
 const node=(tag,content,klass)=>{
   const n=document.createElement(tag);
