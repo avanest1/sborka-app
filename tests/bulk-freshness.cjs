@@ -28,5 +28,12 @@ const selected=payload=>{const bytes=Buffer.from(payload.selection,'base64url');
  t=setup();t.reply({...snapshot(),week:'2026-10-05'});await t.click();assert.equal(t.sent.length,0);
  t=setup();let release;t.defer(r=>release=r);const running=t.click();await Promise.resolve();await t.click();assert.equal(t.reads(),1,'Double click while refreshing cannot race');release(snapshot());await running;assert.equal(t.sent.length,1);
  t=setup();t.defer(r=>release=r);const changedWeek=t.click();await Promise.resolve();t.c.week='2026-10-05';t.c.adminRequest++;release(snapshot());await changedWeek;assert.equal(t.sent.length,0);assert.match(t.messages.at(-1),/неделя изменилась/);
+ // Clearing or changing a selection while a read is in flight must cancel that approval.
+ t=setup();t.defer(r=>release=r);const cleared=t.click();await Promise.resolve();t.el('admin-clear-selection').onclick();release(snapshot());await cleared;assert.equal(t.sent.length,0);assert.match(t.messages.at(-1),/Выбор заявок изменился/);
+ t=setup();t.defer(r=>release=r);const reselected=t.click();await Promise.resolve();vm.runInContext('selectedAssemblies.delete("TG-1000")',t.c);release(snapshot());await reselected;assert.equal(t.sent.length,0);
+ // Do not enqueue a second job against a selection still being accepted in the first job.
+ t=setup();t.c.adminData.bulkJobs=[{state:'В очереди',total:36,accepted:30,failed:0}];await t.click();assert.equal(t.sent.length,0);assert.equal(t.reads(),0);assert.match(t.messages.at(-1),/ещё выполняется/);
+ t=setup();t.reply({...snapshot(),bulkJobs:[{state:'В очереди',total:36,accepted:30,failed:0}]});await t.click();assert.equal(t.sent.length,0);assert.match(t.messages.at(-1),/ещё выполняется/);
+ t=setup();t.reply({...snapshot(),bulkJobs:[{state:'Завершено',total:36,accepted:36,failed:0}]});await t.click();assert.equal(t.sent.length,1,'Completed jobs must not block new acceptance');
  console.log('PASS bulk freshness: 36 exact IDs with new draft; all 2000 rows supported; no unseen additions; accepted skips; stale/deleted/reused/changed guard; bad/failed reads; double-click and week-change protection; no financial POST before fresh validation');
 })().catch(e=>{console.error(e);process.exitCode=1});

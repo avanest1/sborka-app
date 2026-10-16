@@ -183,10 +183,13 @@ function encodeAssemblySelection(records){
 }
 const selectedAssemblies=new Map();
 let bulkPreparing=false;
+function bulkJobPending(data){
+  return Array.isArray(data?.bulkJobs)&&data.bulkJobs.some(j=>j.state==='В очереди');
+}
 function bulkSelectionStatus(){
   const count=selectedAssemblies.size;
   el('admin-bulk-count').textContent='Выбрано: '+count;
-  el('admin-bulk-accept').disabled=count<1||!adminDataFresh||mutationPending||bulkPreparing;
+  el('admin-bulk-accept').disabled=count<1||!adminDataFresh||mutationPending||bulkPreparing||bulkJobPending(adminData);
 }
 el('admin-select-all').onclick=()=>{
   if(!adminDataFresh)return;
@@ -218,6 +221,7 @@ function reconcileBulkSelection(chosen,fresh){
 }
 el('admin-bulk-accept').onclick=async()=>{
   if(bulkPreparing||mutationPending||!adminDataFresh)return;
+  if(bulkJobPending(adminData)){adminStatus('Предыдущая приёмка ещё выполняется. Дождитесь результата и обновите учёт.');return}
   const chosen=[...selectedAssemblies.values()];
   if(!chosen.length)return;
   const summary=chosen.slice(0,12).map(r=>'• '+r.name+' · '+r.product+' × '+r.qty+
@@ -233,7 +237,12 @@ el('admin-bulk-accept').onclick=async()=>{
       throw new Error('Выбранная неделя изменилась. Приёмка не отправлена.');
     if(fresh?.week!==week||!Array.isArray(fresh.assembly)||!Array.isArray(fresh.attendance)||!Array.isArray(fresh.checks))
       throw new Error('Сервер вернул неполный список. Приёмка не отправлена; обновите учёт.');
+    if(selectedAssemblies.size!==chosen.length||chosen.some(r=>{
+      const selected=selectedAssemblies.get(r.key);
+      return !selected||selected.row!==r.row||selected.link!==r.link||selected.rev!==r.rev;
+    }))throw new Error('Выбор заявок изменился. Приёмка не отправлена.');
     adminData=fresh;adminLoadedWeek=week;adminDataFresh=true;selectedAssemblies.clear();renderAdmin();
+    if(bulkJobPending(fresh))throw new Error('Предыдущая приёмка ещё выполняется. Дождитесь результата и обновите учёт.');
     const {remaining,alreadyAccepted}=reconcileBulkSelection(chosen,fresh);
     if(!remaining.length){adminStatus('Все '+alreadyAccepted+' выбранных заявок уже приняты. Повторного начисления нет.');return}
     if(!fresh.bulkSelectionToken&&remaining.length>8)
