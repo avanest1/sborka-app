@@ -96,11 +96,13 @@ function loadingForm(){
   el('product').required=!simple;el('qty').required=!simple&&!table;
   el('order').required=!simple;el('loading-hint').classList.toggle('hide',!loading);
   el('note').required=premium;
-  document.querySelector('label[for="note"]').textContent=premium?'Запрос надбавки (обязательно)':'Запрос надбавки (необязательно)';
+  el('premium-amount-field').classList.toggle('hide',!premium);
+  el('premium-amount').disabled=!premium;el('premium-amount').required=premium;
+  document.querySelector('label[for="note"]').textContent=premium?'За что просите премию (обязательно)':'Запрос надбавки (необязательно)';
   document.querySelector('label[for="order"]').textContent=simple?'№ заказа (необязательно)':'№ заказа';
   const submit=document.querySelector('#assembly-form button[type="submit"]');
   if(submit)submit.textContent=premium?'Отправить запрос премии':'Отправить на приёмку →';
-  el('assembly-photo-hint').textContent=premium?'Опишите, за что просите премию; сумму можно указать в тексте. Руководитель согласует её отдельно. Изделие и фото не требуются.':loading?'700 ₽ каждому участнику после приёмки. Фото необязательно.':'Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия в этот чат.';
+  el('assembly-photo-hint').textContent=premium?'Укажите сумму и основание. После одобрения руководителем премия автоматически попадёт в зарплату. Изделие и фото не требуются.':loading?'700 ₽ каждому участнику после приёмки. Фото необязательно.':'Надбавку утверждает руководитель. После подтверждения заявки ботом отправьте фото изделия в этот чат.';
 }
 el('work-kind').onchange=loadingForm;el('product').onchange=loadingForm;
 function send(payload){
@@ -132,12 +134,16 @@ el('assembly-form').onsubmit=async e=>{
   if(el('work-kind').value==='Премия'){
     const request=el('note').value.trim();
     if(!request){notice('Опишите, за что просите премию.');el('note').focus();return}
-    const payload={version:1,type:'premium',date:el('date').value,order:el('order').value.trim(),request,
+    const raw=el('premium-amount').value.trim().replace(',','.');
+    const amount=Number(raw);
+    if(!/^\d+(?:\.\d{1,2})?$/.test(raw)||!Number.isFinite(amount)||amount<=0||amount>1000000){notice('Укажите сумму премии от 0,01 до 1000000 ₽, не более двух цифр после запятой.');el('premium-amount').focus();return}
+    const payload={version:1,type:'premium',date:el('date').value,order:el('order').value.trim(),request,amount,
       problem:el('problem').value.trim(),responsible:el('responsible').value.trim()};
     premiumPreparing=true;
     try{
       const ready=await adminRequestData('',{view:'premiumStatus'},undefined,workerView);
       if(ready.supported!==true)throw new Error('Премии ещё не подключены. Руководителю нужно установить Apps Script V32 и выполнить tgInstallPremiums.');
+      if(ready.amountRequired!==true)throw new Error('Для премий с суммой руководителю нужно установить Apps Script V33, обновить действующее развёртывание и выполнить tgInstallPremiums.');
       send(payload);
     }catch(error){notice('Премия не отправлена. '+error.message)}
     finally{premiumPreparing=false}
@@ -389,6 +395,7 @@ function renderWorker(){
     card.append(node('strong','Премия'),node('small',shortDate(r.date)+(r.order?' · заказ № '+r.order:'')),
       node('p',r.request),node('span',r.decision,'worker-badge'));
     if(r.decision==='Одобрено')card.append(node('p','Начислено: '+rubles(r.amount)));
+    if(Number(r.requestedAmount)>0)card.append(node('p','Запрошено: '+rubles(r.requestedAmount)));
     if(r.reason)card.append(node('p',r.reason));list.append(card);
   }
   el('earnings-week').textContent='Неделя '+shortDate(data.week)+' — '+shortDate(data.weekEnd);
@@ -1083,9 +1090,28 @@ function renderBonuses(){
     card.append(node('h4',r.name+' · '+r.product+(r.premium?'':' × '+r.qty)));
     card.append(node('p',shortDate(r.date)+(r.order?' · Заказ № '+r.order:' · Без номера заказа')+' · '+r.status));
     card.append(node('p',r.request,'bonus-request'));
+    if(r.premium&&Number(r.requestedAmount)>0)card.append(node('p','Запрошено: '+rubles(r.requestedAmount)));
     card.append(node('p',r.decision+(Number(r.amount)>0?' · '+rubles(r.amount):'')));
     if(r.result)card.append(node('p',r.result,'admin-warning'));
     if(r.decision==='Одобрено')card.append(node('p','К выплате по этой заявке: '+rubles(Number(r.payBonus)||0)));
+    if(r.premium&&r.decision==='На рассмотрении'&&Number(r.requestedAmount)>0){
+      const actions=node('div',null,'bonus-actions');
+      const approve=node('button','Одобрить '+rubles(r.requestedAmount));approve.type='button';
+      const decline=node('button','Отклонить');decline.type='button';decline.className='bonus-decline';
+      const feedback=node('p','','bonus-action-status');feedback.setAttribute('role','status');
+      for(const [button,decision] of [[approve,'Одобрено'],[decline,'Отклонено']]){
+        button.disabled=!bonusDataFresh||!r.canDecide||mutationPending;
+        button.onclick=()=>{
+          if(!bonusDataFresh||!r.canDecide||mutationPending)return;
+          const amount=decision==='Одобрено'?Number(r.requestedAmount):0;
+          if(decision==='Одобрено'&&(!Number.isFinite(amount)||amount<=0||amount>1000000))return;
+          const reason=decision==='Одобрено'?String(r.reasonDefault||r.request).slice(0,600):'Отклонено руководителем';
+          bonusDecisionStatus=feedback;
+          send({version:1,type:'adminBonusDecision',key:r.key,link:r.link,rev:r.rev,decision,amount,reason});
+        };
+      }
+      actions.append(approve,decline);card.append(actions,feedback);
+    }
     const edit=node('button',r.decision==='На рассмотрении'?'Рассмотреть просьбу':'Изменить решение');edit.type='button';
     edit.disabled=!bonusDataFresh||!r.canDecide;card.append(edit);
     edit.onclick=()=>editBonus(card,r,edit);
